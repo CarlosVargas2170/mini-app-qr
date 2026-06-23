@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import '../../core/config/app_config.dart';
+import '../../core/config/app_settings.dart';
 import '../../data/product_remote_data_source.dart';
 import '../../data/datasources/qr_payment_remote_data_source.dart';
 import '../../domain/repositories/product_repository.dart';
@@ -36,10 +36,11 @@ class ServiceLocator {
   late final CompleteOrderUseCase completeOrderUseCase;
 
   void init() {
+    final settings = AppSettings();
     _dio = Dio(BaseOptions(
-      baseUrl: AppConfig.baseUrl,
+      baseUrl: settings.baseUrl,
       headers: {
-        'Authorization': 'Bearer ${AppConfig.bearerToken}',
+        'Authorization': 'Bearer ${settings.bearerToken}',
         'Content-Type': 'application/json',
       },
     ));

@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'core/config/app_settings.dart';
 import 'core/di/service_locator.dart';
-import 'core/services/http_audio_endpoint_service.dart';
+import 'core/services/app_server.dart';
 import 'core/ui/themes/app_colors.dart';
 import 'presentation/pages/home_page.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // 1. Cargar configuracion desde disco (o fallback por defecto).
+  await AppSettings().load();
+
+  // 2. Inicializar inyeccion de dependencias con la config cargada.
   sl.init();
 
-  // Inicia el endpoint HTTP para control de audio externo.
-  final audioEndpoint = HttpAudioEndpointService(port: 8080);
-  audioEndpoint.start();
+  // 3. Iniciar servidor HTTP unificado (config + audio en un solo puerto).
+  final server = AppServer(port: 8080);
+  server.start();
 
   runApp(const MyApp());
 }

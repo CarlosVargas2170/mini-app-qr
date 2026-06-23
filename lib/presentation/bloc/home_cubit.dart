@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../core/config/app_config.dart';
+import '../../core/config/app_settings.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/get_product.dart';
 import 'home_state.dart';
@@ -22,11 +22,12 @@ class HomeCubit extends Cubit<HomeState> {
     emit(state.copyWith(status: HomeStatus.loading, errorMessage: null));
 
     try {
+      final settings = AppSettings();
       final product = await _getProduct(
-        AppConfig.merchantId,
-        AppConfig.productId,
+        settings.merchantId,
+        settings.productId,
       );
-      final merchant = await _getMerchant(AppConfig.merchantId);
+      final merchant = await _getMerchant(settings.merchantId);
 
       emit(state.copyWith(
         status: HomeStatus.loaded,
