@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../presentation/bloc/qr_payment_cubit.dart';
-import '../../presentation/bloc/qr_payment_state.dart';
+import '../bloc/qr_payment_cubit.dart';
+import '../bloc/qr_payment_state.dart';
 import 'qr_display_widget.dart';
 
 /// Pantalla completa de pago QR lista para usar.

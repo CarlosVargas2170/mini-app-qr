@@ -1,0 +1,35 @@
+FROM ghcr.io/cirruslabs/flutter:3.27.0
+
+# Evitar interacciones durante apt install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar dependencias del sistema necesarias para Linux desktop
+# (la imagen base ya trae Flutter, pero le faltan librerias GTK para compilar Linux)
+RUN apt-get update && apt-get install -y \
+    libglu1-mesa \
+    clang \
+    cmake \
+    ninja-build \
+    pkg-config \
+    libgtk-3-dev \
+    liblzma-dev \
+    libstdc++-12-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Habilitar soporte para Linux desktop
+RUN flutter config --enable-linux-desktop
+
+WORKDIR /app
+
+# Copiar dependencias primero para cachear la capa de pub get
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+
+# Copiar todo el codigo fuente
+COPY . .
+
+# Agregar plataforma linux y compilar en release
+RUN flutter create --platforms=linux .
+RUN flutter build linux --release

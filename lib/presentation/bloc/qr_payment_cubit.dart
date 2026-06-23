@@ -2,37 +2,36 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../data/datasources/qr_payment_remote_data_source.dart';
-import '../../data/models/order_status.dart';
-import '../../data/models/place_order_request.dart';
-import '../../data/models/qr_models.dart';
+import '../../domain/entities/order_status.dart';
+import '../../domain/usecases/complete_order.dart';
+import '../../domain/usecases/get_payment_status.dart';
+import '../../domain/usecases/start_qr_payment.dart';
 import 'qr_payment_state.dart';
 
 /// Cubit que gestiona el flujo completo de pago QR.
 ///
 /// Flujo:
-/// 1. Crear orden pendiente (placeOrderPending)
-/// 2. Generar QR (generatePaymentQr)
-/// 3. Polling de estado cada [pollingInterval]
-/// 4. Completar orden al confirmarse el pago
+/// 1. Crear orden pendiente + generar QR (StartQrPaymentUseCase)
+/// 2. Polling de estado cada [pollingInterval] (GetPaymentStatusUseCase)
+/// 3. Completar orden al confirmarse el pago (CompleteOrderUseCase)
 class QrPaymentCubit extends Cubit<QrPaymentState> {
-  final QrPaymentRemoteDataSource _remote;
+  final StartQrPaymentUseCase _startQrPayment;
+  final GetPaymentStatusUseCase _getPaymentStatus;
+  final CompleteOrderUseCase _completeOrder;
   final Duration pollingInterval;
   Timer? _pollTimer;
 
   QrPaymentCubit({
-    required QrPaymentRemoteDataSource remoteDataSource,
+    required StartQrPaymentUseCase startQrPayment,
+    required GetPaymentStatusUseCase getPaymentStatus,
+    required CompleteOrderUseCase completeOrder,
     this.pollingInterval = const Duration(seconds: 3),
-  })  : _remote = remoteDataSource,
+  })  : _startQrPayment = startQrPayment,
+        _getPaymentStatus = getPaymentStatus,
+        _completeOrder = completeOrder,
         super(const QrPaymentState());
 
   /// Inicia el flujo completo de pago QR.
-  ///
-  /// Construye internamente el [PlaceOrderRequestDto] con el mismo formato
-  /// que la app principal (cart, metadataMerchant, items enriquecidos, etc.)
-  /// y lo envia a [POST /orders/create-pending].
-  ///
-  /// Si ya existe un QR generado previo (mismo orderId), se reutiliza.
   Future<void> startQrPayment({
     required int merchantId,
     required String customerName,
@@ -53,38 +52,24 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     emit(state.copyWith(status: QrPaymentStatus.loading));
 
     try {
-      final request = PlaceOrderRequestDto(
+      final order = await _startQrPayment(
         merchantId: merchantId,
-        customerName: customerName.trim().isNotEmpty ? customerName.trim() : 'Cliente',
+        customerName: customerName,
         phoneNumber: phoneNumber,
-        whereEat: whereEat.isNotEmpty ? whereEat : 'dineIn',
-        paymentMethodType: 'qr',
+        whereEat: whereEat,
         cartItems: cartItems,
         menuData: menuData,
+        amount: amount,
         paymentReferenceOverride: paymentReferenceOverride,
-      );
-
-      // Paso 1: crear orden en estado pendiente
-      final orderResponse = await _remote.placeOrderPending(request);
-      final orderId = orderResponse.orderId;
-
-      // Paso 2: generar QR de pago
-      final qrResponse = await _remote.generatePaymentQr(
-        GeneratePaymentQrRequestDto(
-          amount: amount,
-          merchantId: merchantId,
-          orderId: orderId,
-        ),
       );
 
       emit(state.copyWith(
         status: QrPaymentStatus.qrReady,
-        orderId: orderId,
-        qrBase64: qrResponse.qrBase64,
+        orderId: order.orderId,
+        qrBase64: order.qrBase64,
       ));
 
-      // Paso 3: iniciar polling
-      _startPolling(merchantId, orderId);
+      _startPolling(merchantId, order.orderId);
     } catch (e) {
       debugPrint('[QrPaymentCubit] startQrPayment FAILED: $e');
       emit(state.copyWith(
@@ -94,7 +79,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     }
   }
 
-  /// Reinicia el polling si ya hay un QR generado (ej: usuario vuelve a la pantalla).
+  /// Reinicia el polling si ya hay un QR generado.
   void retryPolling(int merchantId) {
     if (state.orderId != null && state.qrBase64 != null) {
       emit(state.copyWith(
@@ -106,7 +91,6 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   }
 
   /// Cancela el pago y detiene el polling.
-  /// Preserva [orderId] y [qrBase64] para poder reanudar con [retryPolling].
   void cancel() {
     _stopPolling();
     emit(state.copyWith(
@@ -128,14 +112,13 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     _pollTimer = Timer.periodic(pollingInterval, (_) async {
       if (isClosed) return;
       try {
-        final statusDto = await _remote.getPaymentStatus(merchantId, orderId);
-        if (statusDto.status == OrderStatus.confirmed) {
+        final status = await _getPaymentStatus(merchantId, orderId);
+        if (status == OrderStatus.confirmed) {
           _onPaymentConfirmed(orderId);
-        } else if (statusDto.status == OrderStatus.failed) {
+        } else if (status == OrderStatus.failed) {
           _onPaymentFailed();
         }
       } catch (e) {
-        // Fallo de red durante polling: silencioso, reintenta en el siguiente tick
         debugPrint('[QrPaymentCubit] Polling error: $e');
       }
     });
@@ -144,7 +127,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   void _onPaymentConfirmed(int orderId) {
     if (isClosed) return;
     _stopPolling();
-    _remote.completeOrder(orderId).catchError((_) {});
+    _completeOrder(orderId).catchError((_) {});
     emit(state.copyWith(
       status: QrPaymentStatus.success,
       isPolling: false,

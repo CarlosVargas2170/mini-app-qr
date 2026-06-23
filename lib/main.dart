@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'core/di/service_locator.dart';
 import 'core/services/http_audio_endpoint_service.dart';
 import 'core/ui/themes/app_colors.dart';
 import 'presentation/pages/home_page.dart';
@@ -10,6 +11,8 @@ void main() {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  sl.init();
 
   // Inicia el endpoint HTTP para control de audio externo.
   final audioEndpoint = HttpAudioEndpointService(port: 8080);

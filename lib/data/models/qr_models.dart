@@ -1,5 +1,4 @@
-// import 'package:qr_payment_module/src/data/models/order_status.dart';
-import '../models/order_status.dart';
+import '../../domain/entities/order_status.dart';
 // ---------------------------------------------------------------------------
 // Request / Response para generar QR de pago
 // ---------------------------------------------------------------------------

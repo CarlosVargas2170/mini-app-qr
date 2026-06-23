@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Dart/Flutter
+.dart_tool/
+.packages
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de log
+*.log
+
+# Windows
+windows/
+
+# Docker
+Dockerfile*
+.dockerignore
