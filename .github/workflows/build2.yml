@@ -1,0 +1,50 @@
+name: Build Flutter App for Linux ARM64
+
+on:
+  push:
+    branches: 
+      - main           # Mantén esta si quieres
+      - fix/refactor 
+  workflow_dispatch: # Permite ejecutarlo manualmente
+
+jobs:
+  build-linux-arm64:
+    # Este es el runner ARM64 de GitHub
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          # Estas son las dependencias necesarias para compilar para Linux Desktop
+          sudo apt-get install -y curl git unzip cmake ninja-build \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev pkg-config
+
+      # Este paso es el más importante para ARM64
+      - name: Clone Flutter SDK
+        run: |
+          # Clona el SDK en el directorio temporal del runner
+          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git $RUNNER_TEMP/flutter
+          # Añade Flutter al PATH para los siguientes pasos
+          echo "$RUNNER_TEMP/flutter/bin" >> $GITHUB_PATH
+
+      - name: Install Flutter dependencies
+        # Ejecutar 'flutter doctor' descarga las dependencias necesarias para la arquitectura ARM64
+        run: flutter doctor
+
+      - name: Enable Linux desktop support
+        run: flutter config --enable-linux-desktop
+
+      - name: Build the Linux app
+        run: flutter build linux
+
+      # Sube el resultado de la compilación para que puedas descargarlo
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # El nombre del artefacto que verás en GitHub
+          name: mi-app-linux-arm64
+          # La ruta donde Flutter deja el ejecutable y sus archivos
+          path: build/linux/arm64/release/bundle/
