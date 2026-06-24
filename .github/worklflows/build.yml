@@ -2,7 +2,9 @@ name: Build Flutter App for Linux ARM64
 
 on:
   push:
-    branches: [ fix/refactor ]
+    branches: 
+      - main           # Mantén esta si quieres
+      - fix/refactor 
   workflow_dispatch: # Permite ejecutarlo manualmente
 
 jobs:
