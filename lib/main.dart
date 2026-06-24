@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/config/app_settings.dart';
 import 'core/di/service_locator.dart';
 import 'core/services/app_server.dart';
@@ -8,6 +9,24 @@ import 'presentation/pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar window_manager para controlar la ventana nativa.
+  await windowManager.ensureInitialized();
+
+  // Configurar ventana: pantalla completa, sin bordes.
+  WindowOptions windowOptions = const WindowOptions(
+    size: Size(800, 600),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden, // Sin barra de titulo
+    fullScreen: true, // Pantalla completa
+  );
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
