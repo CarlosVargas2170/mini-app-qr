@@ -6,7 +6,6 @@ set -e
 
 APP_NAME="mini_app_qr"
 INSTALL_DIR="/opt/$APP_NAME"
-BUNDLE_DIR="./bundle"
 DESKTOP_FILE="/usr/share/applications/${APP_NAME}.desktop"
 SYSTEMD_SERVICE="/etc/systemd/system/${APP_NAME}.service"
 
@@ -20,10 +19,10 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Verificar que existe la carpeta bundle
-if [ ! -d "$BUNDLE_DIR" ]; then
-    echo "[ERROR] No se encontro la carpeta '$BUNDLE_DIR'."
-    echo "        Asegurate de descomprimir el paquete antes de instalar."
+# Verificar que existe el ejecutable en el directorio actual
+if [ ! -f "./mini_app_qr" ]; then
+    echo "[ERROR] No se encontro el ejecutable 'mini_app_qr' en el directorio actual."
+    echo "        Asegurate de descomprimir el paquete y ejecutar este script desde ahi."
     exit 1
 fi
 
@@ -31,9 +30,13 @@ fi
 echo "[1/5] Creando directorio de instalacion en $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 
-# Copiar archivos
+# Copiar archivos (excluyendo los propios scripts de instalacion)
 echo "[2/5] Copiando archivos de la aplicacion..."
-cp -r "$BUNDLE_DIR"/* "$INSTALL_DIR/"
+for item in ./*; do
+    [ "$(basename "$item")" = "install.sh" ] && continue
+    [ "$(basename "$item")" = "uninstall.sh" ] && continue
+    cp -r "$item" "$INSTALL_DIR/"
+done
 chmod +x "$INSTALL_DIR/mini_app_qr"
 
 # Crear archivo .desktop (acceso directo en el menu)
