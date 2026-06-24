@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/app_settings.dart';
 import 'core/di/service_locator.dart';
@@ -9,6 +10,7 @@ import 'presentation/pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
 
   // Inicializar window_manager para controlar la ventana nativa.
   await windowManager.ensureInitialized();

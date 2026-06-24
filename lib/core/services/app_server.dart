@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../config/app_settings.dart';
 import '../config/config_storage.dart';
 import 'audio_service.dart';
+import 'ui_command_bus.dart';
 
 /// Servidor HTTP unificado de la aplicacion.
 ///
@@ -57,7 +58,39 @@ class AppServer {
     // --- Audio endpoints ---
     if (path == '/play-question' && method == 'GET') {
       AudioService.playQuestion();
-      _sendJson(response, 200, {'success': true, 'message': 'Reproduciendo audio'});
+      _sendJson(response, 200, {'success': true, 'message': 'Reproduciendo audio de pregunta'});
+      return;
+    }
+
+    if (path == '/play-thanks' && method == 'GET') {
+      AudioService.playThanks();
+      _sendJson(response, 200, {'success': true, 'message': 'Reproduciendo audio de agradecimiento'});
+      return;
+    }
+
+    // --- Robot / Proximity endpoints ---
+    if (path == '/proximity/near' && method == 'GET') {
+      UiCommandBus.emit(UiCommand.showAttract);
+      _sendJson(response, 200, {'success': true, 'mode': 'attract', 'message': 'Mostrando video de atraccion'});
+      return;
+    }
+
+    if (path == '/greet' && method == 'GET') {
+      UiCommandBus.emit(UiCommand.showProduct);
+      AudioService.playQuestion();
+      _sendJson(response, 200, {'success': true, 'mode': 'product', 'audio': true, 'message': 'Mostrando producto y reproduciendo saludo'});
+      return;
+    }
+
+    if (path == '/product' && method == 'GET') {
+      UiCommandBus.emit(UiCommand.showProduct);
+      _sendJson(response, 200, {'success': true, 'mode': 'product', 'audio': false, 'message': 'Mostrando solo el producto'});
+      return;
+    }
+
+    if (path == '/proximity/away' && method == 'GET') {
+      UiCommandBus.emit(UiCommand.showIdle);
+      _sendJson(response, 200, {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
       return;
     }
 

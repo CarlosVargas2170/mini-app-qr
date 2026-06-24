@@ -44,10 +44,12 @@ New-Item -ItemType Directory -Path $PackageDir -Force | Out-Null
 Write-Host "[1/3] Copiando archivos del build..."
 Copy-Item -Path "$BuildDir\*" -Destination $PackageDir -Recurse -Force
 
-# Copiar scripts de instalacion
+# Copiar scripts de instalacion y kiosk
 Write-Host "[2/3] Copiando scripts de instalacion..."
 Copy-Item -Path "$ScriptsLinuxDir\install.sh" -Destination $PackageDir -Force
 Copy-Item -Path "$ScriptsLinuxDir\uninstall.sh" -Destination $PackageDir -Force
+Copy-Item -Path "$ScriptsLinuxDir\start_kiosk.sh" -Destination $PackageDir -Force
+Copy-Item -Path "$ScriptsLinuxDir\exit_kiosk.sh" -Destination $PackageDir -Force
 
 # Empaquetar como zip (compatible Windows/Linux)
 Write-Host "[3/3] Generando archivo de distribucion..."

@@ -1,13 +1,12 @@
 #!/bin/bash
-# Script de instalacion de Mini App QR para Linux
-# Uso: ./install.sh
+# Script de instalacion de Mini App QR para Linux (Modo Kiosk)
+# Uso: sudo ./install.sh
 
 set -e
 
 APP_NAME="mini_app_qr"
 INSTALL_DIR="/opt/$APP_NAME"
 DESKTOP_FILE="/usr/share/applications/${APP_NAME}.desktop"
-SYSTEMD_SERVICE="/etc/systemd/system/${APP_NAME}.service"
 
 echo "=========================================="
 echo " Instalador de Mini App QR (Linux)"
@@ -39,6 +38,15 @@ for item in ./*; do
 done
 chmod +x "$INSTALL_DIR/mini_app_qr"
 
+# Copiar scripts de kiosk si existen en la carpeta scripts/
+if [ -d "./scripts/linux" ]; then
+    echo "       Copiando scripts de kiosk..."
+    cp ./scripts/linux/start_kiosk.sh "$INSTALL_DIR/" 2>/dev/null || true
+    cp ./scripts/linux/exit_kiosk.sh "$INSTALL_DIR/" 2>/dev/null || true
+    chmod +x "$INSTALL_DIR/start_kiosk.sh" 2>/dev/null || true
+    chmod +x "$INSTALL_DIR/exit_kiosk.sh" 2>/dev/null || true
+fi
+
 # Crear archivo .desktop (acceso directo en el menu)
 echo "[3/5] Creando acceso directo..."
 cat > "$DESKTOP_FILE" << EOF
@@ -54,39 +62,41 @@ EOF
 
 chmod +x "$DESKTOP_FILE"
 
-# Crear servicio systemd para auto-inicio
-echo "[4/5] Creando servicio systemd..."
-cat > "$SYSTEMD_SERVICE" << EOF
-[Unit]
-Description=Mini App QR
-After=graphical.target
-
-[Service]
-Type=simple
-User=$SUDO_USER
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$SUDO_USER/.Xauthority
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/mini_app_qr
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=graphical.target
+# Crear auto-inicio KIOSK para el usuario actual
+echo "[4/5] Configurando auto-inicio KIOSK..."
+if [ -n "$SUDO_USER" ]; then
+    USER_HOME=$(eval echo ~$SUDO_USER)
+    AUTOSTART_DIR="$USER_HOME/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
+    
+    # Crear .desktop de autostart apuntando al script kiosk
+    cat > "$AUTOSTART_DIR/${APP_NAME}.desktop" << EOF
+[Desktop Entry]
+Type=Application
+Name=Mini App QR Kiosk
+Exec=$INSTALL_DIR/start_kiosk.sh
+Icon=$INSTALL_DIR/data/flutter_assets/assets/icon.png
+Terminal=false
+Comment=Mini App QR - Modo Totem Kiosk
+X-GNOME-Autostart-enabled=true
 EOF
-
-# Recargar systemd
-systemctl daemon-reload
-systemctl enable "$APP_NAME.service"
+    
+    chown "$SUDO_USER:$SUDO_USER" "$AUTOSTART_DIR/${APP_NAME}.desktop"
+    chmod +x "$AUTOSTART_DIR/${APP_NAME}.desktop"
+    echo "       Auto-inicio KIOSK activado para: $SUDO_USER"
+    echo "       La app se bloqueara en pantalla completa al iniciar."
+else
+    echo "       Advertencia: No se detecto SUDO_USER. Auto-inicio no configurado."
+    echo "       Ejecuta manualmente desde el usuario: ./setup_autostart.sh"
+fi
 
 echo "[5/5] Instalacion completada."
 echo ""
 echo "=========================================="
 echo " COMANDOS UTILES:"
 echo "=========================================="
-echo "  Iniciar app manualmente:  ./$INSTALL_DIR/mini_app_qr"
-echo "  Iniciar como servicio:    sudo systemctl start $APP_NAME"
-echo "  Ver estado del servicio:  sudo systemctl status $APP_NAME"
-echo "  Detener servicio:         sudo systemctl stop $APP_NAME"
+echo "  Iniciar app manualmente:  $INSTALL_DIR/mini_app_qr"
+echo "  Iniciar modo kiosk:       $INSTALL_DIR/start_kiosk.sh"
+echo "  Salida de emergencia:     $INSTALL_DIR/exit_kiosk.sh"
 echo "  Desinstalar:              sudo ./uninstall.sh"
 echo "=========================================="

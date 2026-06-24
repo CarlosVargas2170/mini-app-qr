@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
 import '../../core/di/service_locator.dart';
+import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../bloc/home_cubit.dart';
 import '../bloc/home_state.dart';
+import '../widgets/attract_video_player.dart';
 import '../widgets/order_summary.dart';
 import '../widgets/product_card.dart';
 import 'qr_payment_page.dart';
@@ -21,8 +25,47 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _HomeView extends StatelessWidget {
+class _HomeView extends StatefulWidget {
   const _HomeView();
+
+  @override
+  State<_HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<_HomeView> {
+  StreamSubscription<UiCommand>? _commandSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _commandSub = UiCommandBus.stream.listen(_onCommand);
+  }
+
+  @override
+  void dispose() {
+    _commandSub?.cancel();
+    super.dispose();
+  }
+
+  void _onCommand(UiCommand cmd) {
+    debugPrint('[HomePage] UiCommand recibido: $cmd');
+    if (!mounted) {
+      debugPrint('[HomePage] Comando ignorado: widget no montado');
+      return;
+    }
+    final cubit = context.read<HomeCubit>();
+    switch (cmd) {
+      case UiCommand.showAttract:
+        cubit.showAttract();
+        break;
+      case UiCommand.showProduct:
+        cubit.showProduct();
+        break;
+      case UiCommand.showIdle:
+        cubit.showIdle();
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,15 +74,39 @@ class _HomeView extends StatelessWidget {
       body: SafeArea(
         child: BlocConsumer<HomeCubit, HomeState>(
           listener: (context, state) {
-            // Aquí se pueden manejar side-effects si es necesario
+            // Side-effects globales si son necesarios
           },
           builder: (context, state) {
+            debugPrint('[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
             return switch (state.status) {
               HomeStatus.initial || HomeStatus.loading => _buildLoading(),
               HomeStatus.error => _buildError(state.errorMessage, context),
-              HomeStatus.loaded => _buildContent(context, state),
+              HomeStatus.loaded => _buildLoaded(context, state),
             };
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoaded(BuildContext context, HomeState state) {
+    return switch (state.displayMode) {
+      DisplayMode.idle => _buildIdle(),
+      DisplayMode.attract => const AttractVideoPlayer(),
+      DisplayMode.product => _buildContent(context, state),
+    };
+  }
+
+  Widget _buildIdle() {
+    return Container(
+      color: AppColors.background,
+      child: const Center(
+        child: Text(
+          'Esperando...',
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 24,
+          ),
         ),
       ),
     );
