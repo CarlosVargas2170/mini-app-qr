@@ -37,6 +37,9 @@ jobs:
       - name: Enable Linux desktop support
         run: flutter config --enable-linux-desktop
 
+      - name: Create Linux project files
+        run: flutter create --platforms=linux .
+
       - name: Build the Linux app
         run: flutter build linux
 
