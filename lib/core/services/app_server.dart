@@ -50,21 +50,25 @@ class AppServer {
 
   void _handleRequest(HttpRequest request) async {
     final response = request.response;
+    final path = request.uri.path;
+    final method = request.method;
 
-    // CORS
+    // Log de todas las peticiones que llegan
+    debugPrint('[AppServer] ${request.method} ${request.uri}');
+
+    // CORS permisivo para funcionar con ngrok, navegadores, PWA, etc.
     response.headers.add('Access-Control-Allow-Origin', '*');
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type');
-    response.headers.contentType = ContentType.json;
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH');
+    response.headers.add('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With');
+    response.headers.add('Access-Control-Max-Age', '86400'); // Cache preflight 24h
 
-    if (request.method == 'OPTIONS') {
+    if (method == 'OPTIONS') {
       response.statusCode = HttpStatus.noContent;
-      response.close();
+      await response.close();
       return;
     }
 
-    final path = request.uri.path;
-    final method = request.method;
+    response.headers.contentType = ContentType.json;
 
     // --- Audio endpoints ---
     if (path == '/audio/play' && method == 'POST') {
