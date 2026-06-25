@@ -95,6 +95,8 @@ Dio createAuthenticatedDio() {
   final settings = AppSettings();
   final dio = Dio(BaseOptions(
     baseUrl: settings.baseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
     headers: {
       'Authorization': 'Bearer ${settings.bearerToken}',
       'Content-Type': 'application/json',

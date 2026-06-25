@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y \
     libstdc++-12-dev \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
+    libmpv-dev \
+    mpv \
+    libass-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Habilitar soporte para Linux desktop
