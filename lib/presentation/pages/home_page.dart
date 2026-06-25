@@ -8,7 +8,7 @@ import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../bloc/home_cubit.dart';
 import '../bloc/home_state.dart';
-import '../widgets/attract_video_player.dart';
+import '../widgets/attract_gif_player.dart';
 import '../widgets/order_summary.dart';
 import '../widgets/product_card.dart';
 import 'qr_payment_page.dart';
@@ -82,7 +82,7 @@ class _HomeViewState extends State<_HomeView> {
             // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
             // - product solo se muestra si el producto realmente esta cargado.
             return switch (state.displayMode) {
-              DisplayMode.attract => const AttractVideoPlayer(),
+              DisplayMode.attract => const AttractGifPlayer(),
               DisplayMode.idle => _buildIdle(),
               DisplayMode.product => switch (state.status) {
                 HomeStatus.initial || HomeStatus.loading => _buildLoading(),

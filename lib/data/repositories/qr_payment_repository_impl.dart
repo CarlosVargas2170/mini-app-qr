@@ -35,13 +35,16 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
     final orderResponse = await _remote.placeOrderPending(request);
     final orderId = orderResponse.orderId;
 
-    final qrResponse = await _remote.generatePaymentQr(
-      GeneratePaymentQrRequestDto(
-        amount: amount,
-        merchantId: merchantId,
-        orderId: orderId,
-      ),
+    print('[QR_REPO] Orden creada: orderId=$orderId, amount=$amount, merchantId=$merchantId');
+
+    final qrRequest = GeneratePaymentQrRequestDto(
+      amount: amount,
+      merchantId: merchantId,
+      orderId: orderId,
     );
+    print('[QR_REPO] Generando QR con body: ${qrRequest.toJson()}');
+
+    final qrResponse = await _remote.generatePaymentQr(qrRequest);
 
     return Order(
       orderId: orderId,

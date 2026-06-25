@@ -83,5 +83,5 @@ class AudioService {
   /// Reproduce el audio de invitacion a comprar.
   /// Cambia el asset si tu archivo tiene otro nombre.
   static Future<bool> playBuy({bool force = false}) async =>
-      play('audio/buy_purchase.wav', force: force);
+      play('audio/purchase_buy.wav', force: force);
 }
