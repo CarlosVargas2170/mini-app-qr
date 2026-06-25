@@ -162,61 +162,64 @@ class _HomeViewState extends State<_HomeView> {
 
   Widget _buildWideLayout(BuildContext context, HomeState state) {
     final product = state.product!;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ProductCard(product: product, fill: true),
+    return Padding(
+      padding: const EdgeInsets.all(96),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ProductCard(product: product, fill: true),
+            ),
           ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 24, top: 24, bottom: 24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.coffee, color: AppColors.accent, size: 48),
-                  const SizedBox(height: 16),
-                  Text(
-                    '¿Quieres un ${product.name}?',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.coffee, color: AppColors.accent, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      '¿Quieres un ${product.name}?',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${product.price} Bs',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.warning,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 8),
+                    Text(
+                      '${product.price} Bs',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const Divider(color: AppColors.border, height: 40),
-                  const SizedBox(height: 12),
-                  _buildPayButton(context, state),
-                ],
+                    const Divider(color: AppColors.border, height: 40),
+                    const SizedBox(height: 12),
+                    _buildPayButton(context, state),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
