@@ -64,6 +64,10 @@ class _HomeViewState extends State<_HomeView> {
       case UiCommand.showIdle:
         await cubit.showIdle();
         break;
+      case UiCommand.reloadProduct:
+        debugPrint('[HomePage] Recargando producto por cambio de config...');
+        await cubit.load();
+        break;
     }
   }
 

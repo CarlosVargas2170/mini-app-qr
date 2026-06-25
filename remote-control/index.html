@@ -21,8 +21,11 @@
       </div>
       <div class="config-bar">
         <label for="baseUrl">URL del Totem:</label>
-        <input type="text" id="baseUrl" placeholder="http://192.168.1.50:8080" value="http://localhost:8080">
+        <input type="text" id="baseUrl" placeholder="http://IP_DEL_TOTEM:8080" value="">
         <button class="btn-small btn-test" onclick="testConnection()">Probar</button>
+      </div>
+      <div class="hint">
+        <small>Escribe la IP de la Jetson (ej: <code>http://192.168.1.50:8080</code>) o tu URL de ngrok.</small>
       </div>
     </header>
 

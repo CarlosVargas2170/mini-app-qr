@@ -62,9 +62,13 @@ class AppSettings {
 
 /// Valores por defecto cuando no hay config guardada.
 abstract final class _defaults {
-  static const String baseUrl = 'https://api-totem.sandbox.nexuspatiotech.com/api';
+  // static const String baseUrl = 'https://api-totem.sandbox.nexuspatiotech.com/api';
+  static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
   static const String bearerToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MjQxMDQ5MCwiZXhwIjoxODEzOTQ2NDkwfQ.M9fdig91KYqiGBTrrFMYfYjsRf5ZhmvICxT_q1yeDLs';
+  // static const String bearerToken =
+  //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
+  // static const int merchantId = 53;
   static const int merchantId = 53;
   static const int productId = 457969;
 }

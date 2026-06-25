@@ -13,6 +13,9 @@ enum UiCommand {
 
   /// Volver a estado de reposo / espera (persona se alejo).
   showIdle,
+
+  /// Recargar producto y merchant desde la API (config cambio).
+  reloadProduct,
 }
 
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.

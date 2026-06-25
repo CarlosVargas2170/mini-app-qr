@@ -60,12 +60,13 @@ async function callEndpoint(method, path, body = null) {
   const options = {
     method,
     headers: {
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   };
 
+  // Solo agregar Content-Type si hay body (POST/PUT con datos)
   if (body && (method === 'POST' || method === 'PUT')) {
+    options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
   }
 

@@ -247,23 +247,29 @@ class AppServer {
 
       final settings = AppSettings();
       final updated = <String, dynamic>{};
+      var needsReload = false;
+      var needsRestart = false;
 
       // Solo actualiza los campos que vienen en el body.
       if (json.containsKey('baseUrl')) {
         settings.baseUrl = json['baseUrl'] as String;
         updated['baseUrl'] = true;
+        needsRestart = true; // Dio se crea en ServiceLocator.init()
       }
       if (json.containsKey('bearerToken')) {
         settings.bearerToken = json['bearerToken'] as String;
         updated['bearerToken'] = true;
+        needsRestart = true; // Dio se crea en ServiceLocator.init()
       }
       if (json.containsKey('merchantId')) {
         settings.merchantId = (json['merchantId'] as num).toInt();
         updated['merchantId'] = true;
+        needsReload = true; // Producto puede recargarse en caliente
       }
       if (json.containsKey('productId')) {
         settings.productId = (json['productId'] as num).toInt();
         updated['productId'] = true;
+        needsReload = true; // Producto puede recargarse en caliente
       }
 
       await ConfigStorage.write({
@@ -273,10 +279,23 @@ class AppServer {
         'productId': settings.productId,
       });
 
+      // Recargar producto en caliente si cambio merchantId o productId
+      if (needsReload) {
+        debugPrint('[AppServer] Config cambio (merchant/product) -> emitiendo reloadProduct');
+        UiCommandBus.emit(UiCommand.reloadProduct);
+      }
+
+      final messages = <String>[];
+      if (needsReload) messages.add('Producto recargado en caliente.');
+      if (needsRestart) messages.add('Reinicia la app para aplicar cambios de URL/Token.');
+      if (messages.isEmpty) messages.add('Configuracion guardada.');
+
       _sendJson(response, 200, {
         'success': true,
-        'message': 'Configuracion actualizada y guardada. Reinicia la app para aplicar los cambios.',
+        'message': messages.join(' '),
         'updated': updated.keys.toList(),
+        'needsRestart': needsRestart,
+        'needsReload': needsReload,
       });
     } catch (e) {
       _sendJson(response, 400, {'success': false, 'message': 'JSON invalido: $e'});
