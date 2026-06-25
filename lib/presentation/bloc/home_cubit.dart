@@ -62,39 +62,68 @@ class HomeCubit extends Cubit<HomeState> {
   }
 
   /// Muestra el video de atraccion (robot cerca de persona).
-  void showAttract() {
+  ///
+  /// El video es un asset local, asi que funciona incluso si el producto
+  /// no ha cargado (status=error). Solo intenta recargar si esta en error.
+  Future<void> showAttract() async {
     debugPrint('[HomeCubit] showAttract() llamado');
     _cancelInactivityTimer();
-    if (state.status == HomeStatus.loaded) {
-      emit(state.copyWith(displayMode: DisplayMode.attract));
-      debugPrint('[HomeCubit] Estado emitido: displayMode=attract');
-    } else {
-      debugPrint('[HomeCubit] showAttract() ignorado: status=${state.status} (aun no esta loaded)');
+
+    emit(state.copyWith(displayMode: DisplayMode.attract));
+    debugPrint('[HomeCubit] Estado emitido: displayMode=attract');
+
+    // Si estaba en error, intentar recargar el producto en segundo plano
+    if (state.status == HomeStatus.error) {
+      debugPrint('[HomeCubit] showAttract() -> status=error, recargando producto en background...');
+      await load();
     }
   }
 
   /// Muestra el producto y programa el timer de inactividad.
-  void showProduct() {
+  ///
+  /// Requiere que el producto este cargado (status=loaded).
+  /// Si esta en error, intenta recargar primero.
+  Future<void> showProduct() async {
     debugPrint('[HomeCubit] showProduct() llamado');
     _cancelInactivityTimer();
+
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(displayMode: DisplayMode.product));
       debugPrint('[HomeCubit] Estado emitido: displayMode=product');
       _startInactivityTimer();
-    } else {
-      debugPrint('[HomeCubit] showProduct() ignorado: status=${state.status} (aun no esta loaded)');
+      return;
     }
+
+    if (state.status == HomeStatus.error) {
+      debugPrint('[HomeCubit] showProduct() -> status=error, recargando...');
+      await load();
+      if (state.status == HomeStatus.loaded) {
+        emit(state.copyWith(displayMode: DisplayMode.product));
+        debugPrint('[HomeCubit] Recarga OK -> displayMode=product');
+        _startInactivityTimer();
+      } else {
+        debugPrint('[HomeCubit] Recarga fallo, no se puede mostrar producto');
+      }
+      return;
+    }
+
+    debugPrint('[HomeCubit] showProduct() ignorado: status=${state.status} (aun no esta listo)');
   }
 
   /// Vuelve a reposo / espera.
-  void showIdle() {
+  ///
+  /// Funciona siempre, incluso sin producto cargado.
+  Future<void> showIdle() async {
     debugPrint('[HomeCubit] showIdle() llamado');
     _cancelInactivityTimer();
-    if (state.status == HomeStatus.loaded) {
-      emit(state.copyWith(displayMode: DisplayMode.idle));
-      debugPrint('[HomeCubit] Estado emitido: displayMode=idle');
-    } else {
-      debugPrint('[HomeCubit] showIdle() ignorado: status=${state.status} (aun no esta loaded)');
+
+    emit(state.copyWith(displayMode: DisplayMode.idle));
+    debugPrint('[HomeCubit] Estado emitido: displayMode=idle');
+
+    // Si estaba en error, intentar recargar el producto en segundo plano
+    if (state.status == HomeStatus.error) {
+      debugPrint('[HomeCubit] showIdle() -> status=error, recargando producto en background...');
+      await load();
     }
   }
 

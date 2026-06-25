@@ -11,7 +11,18 @@ import 'ui_command_bus.dart';
 /// Servidor HTTP unificado de la aplicacion.
 ///
 /// Expone todos los endpoints de la app en un solo puerto:
-/// - `GET  /play-question`  -> Reproduce audio
+/// --- Audio ---
+/// - `POST /audio/play`     -> Reproduce cualquier asset de audio (body: {"asset": "audio/foo.wav"})
+/// - `POST /audio/stop`     -> Detiene el audio actual
+/// - `POST /play-audio`     -> Reproduce audio por query param (ej: ?asset=audio/foo.wav&volume=1.0)
+/// - `POST /play-question`  -> Reproduce audio de pregunta (legacy)
+/// - `POST /play-thanks`    -> Reproduce audio de agradecimiento (legacy)
+/// --- Robot / UI ---
+/// - `POST /proximity/near` -> Muestra video de atraccion
+/// - `POST /greet`          -> Muestra producto + reproduce saludo
+/// - `POST /product`        -> Muestra solo el producto
+/// - `POST /proximity/away` -> Vuelve a reposo
+/// --- Config ---
 /// - `GET  /config`         -> Lee configuracion actual
 /// - `POST /config`         -> Guarda nueva configuracion
 class AppServer {
@@ -56,39 +67,100 @@ class AppServer {
     final method = request.method;
 
     // --- Audio endpoints ---
-    if (path == '/play-question' && method == 'GET') {
-      AudioService.playQuestion();
-      _sendJson(response, 200, {'success': true, 'message': 'Reproduciendo audio de pregunta'});
+    if (path == '/audio/play' && method == 'POST') {
+      await _handlePlayAudio(request, response);
       return;
     }
 
-    if (path == '/play-thanks' && method == 'GET') {
-      AudioService.playThanks();
-      _sendJson(response, 200, {'success': true, 'message': 'Reproduciendo audio de agradecimiento'});
+    if (path == '/audio/stop' && method == 'POST') {
+      await AudioService.stop();
+      _sendJson(response, 200, {'success': true, 'message': 'Audio detenido'});
+      return;
+    }
+
+    // NUEVO: endpoint simple por query param (facil de probar desde navegador)
+    if (path == '/play-audio' && method == 'POST') {
+      final params = request.uri.queryParameters;
+      final asset = params['asset'];
+      final volume = double.tryParse(params['volume'] ?? '1.0') ?? 1.0;
+      final force = params['force'] == 'true';
+
+      if (asset == null || asset.isEmpty) {
+        _sendJson(response, 400, {
+          'success': false,
+          'message': 'Falta parametro ?asset=audio/foo.wav',
+        });
+        return;
+      }
+
+      final played = await AudioService.play(asset, volume: volume, force: force);
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'asset': asset,
+        'message': played ? 'Reproduciendo "$asset"' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-question' && method == 'POST') {
+      final played = await AudioService.playQuestion();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de pregunta' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-thanks' && method == 'POST') {
+      final played = await AudioService.playThanks();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de agradecimiento' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-buy' && method == 'POST') {
+      final played = await AudioService.playBuy();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de compra' : 'Cooldown activo, audio omitido',
+      });
       return;
     }
 
     // --- Robot / Proximity endpoints ---
-    if (path == '/proximity/near' && method == 'GET') {
+    if (path == '/proximity/near' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showAttract);
       _sendJson(response, 200, {'success': true, 'mode': 'attract', 'message': 'Mostrando video de atraccion'});
       return;
     }
 
-    if (path == '/greet' && method == 'GET') {
+    if (path == '/greet' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProduct);
-      AudioService.playQuestion();
-      _sendJson(response, 200, {'success': true, 'mode': 'product', 'audio': true, 'message': 'Mostrando producto y reproduciendo saludo'});
+      final played = await AudioService.playQuestion();
+      _sendJson(response, 200, {
+        'success': true,
+        'mode': 'product',
+        'audio': played,
+        'message': played
+            ? 'Mostrando producto y reproduciendo saludo'
+            : 'Mostrando producto (audio omitido por cooldown)',
+      });
       return;
     }
 
-    if (path == '/product' && method == 'GET') {
+    if (path == '/product' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProduct);
       _sendJson(response, 200, {'success': true, 'mode': 'product', 'audio': false, 'message': 'Mostrando solo el producto'});
       return;
     }
 
-    if (path == '/proximity/away' && method == 'GET') {
+    if (path == '/proximity/away' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showIdle);
       _sendJson(response, 200, {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
       return;
@@ -108,6 +180,37 @@ class AppServer {
 
     // --- 404 ---
     _sendJson(response, 404, {'success': false, 'message': 'Endpoint no encontrado'});
+  }
+
+  // -- Audio handlers --
+
+  Future<void> _handlePlayAudio(HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+
+      final asset = json['asset'] as String?;
+      if (asset == null || asset.isEmpty) {
+        _sendJson(response, 400, {
+          'success': false,
+          'message': 'Body debe contener "asset" con la ruta del audio',
+        });
+        return;
+      }
+
+      final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
+      final force = json['force'] == true;
+
+      final played = await AudioService.play(asset, volume: volume, force: force);
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'asset': asset,
+        'message': played ? 'Reproduciendo "$asset"' : 'Cooldown activo, audio omitido',
+      });
+    } catch (e) {
+      _sendJson(response, 400, {'success': false, 'message': 'Error reproduciendo audio: $e'});
+    }
   }
 
   // -- Config handlers --

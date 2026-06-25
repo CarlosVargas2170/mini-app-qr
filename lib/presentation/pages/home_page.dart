@@ -47,7 +47,7 @@ class _HomeViewState extends State<_HomeView> {
     super.dispose();
   }
 
-  void _onCommand(UiCommand cmd) {
+  void _onCommand(UiCommand cmd) async {
     debugPrint('[HomePage] UiCommand recibido: $cmd');
     if (!mounted) {
       debugPrint('[HomePage] Comando ignorado: widget no montado');
@@ -56,13 +56,13 @@ class _HomeViewState extends State<_HomeView> {
     final cubit = context.read<HomeCubit>();
     switch (cmd) {
       case UiCommand.showAttract:
-        cubit.showAttract();
+        await cubit.showAttract();
         break;
       case UiCommand.showProduct:
-        cubit.showProduct();
+        await cubit.showProduct();
         break;
       case UiCommand.showIdle:
-        cubit.showIdle();
+        await cubit.showIdle();
         break;
     }
   }
@@ -78,23 +78,22 @@ class _HomeViewState extends State<_HomeView> {
           },
           builder: (context, state) {
             debugPrint('[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
-            return switch (state.status) {
-              HomeStatus.initial || HomeStatus.loading => _buildLoading(),
-              HomeStatus.error => _buildError(state.errorMessage, context),
-              HomeStatus.loaded => _buildLoaded(context, state),
+            // El displayMode tiene prioridad:
+            // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
+            // - product solo se muestra si el producto realmente esta cargado.
+            return switch (state.displayMode) {
+              DisplayMode.attract => const AttractVideoPlayer(),
+              DisplayMode.idle => _buildIdle(),
+              DisplayMode.product => switch (state.status) {
+                HomeStatus.initial || HomeStatus.loading => _buildLoading(),
+                HomeStatus.error => _buildError(state.errorMessage, context),
+                HomeStatus.loaded => _buildContent(context, state),
+              },
             };
           },
         ),
       ),
     );
-  }
-
-  Widget _buildLoaded(BuildContext context, HomeState state) {
-    return switch (state.displayMode) {
-      DisplayMode.idle => _buildIdle(),
-      DisplayMode.attract => const AttractVideoPlayer(),
-      DisplayMode.product => _buildContent(context, state),
-    };
   }
 
   Widget _buildIdle() {

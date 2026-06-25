@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0f0f23">
   <title>Control Robot - Mini App QR</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -85,6 +85,11 @@
             <span class="icon">🙏</span>
             <span class="label">Gracias</span>
             <span class="sub">Agradecimiento</span>
+          </button>
+          <button class="btn btn-orange" onclick="callEndpoint('POST','/play-buy')">
+            <span class="icon">🛒</span>
+            <span class="label">Comprar</span>
+            <span class="sub">Invitacion a compra</span>
           </button>
           <button class="btn btn-red" onclick="callEndpoint('POST','/audio/stop')">
             <span class="icon">🔇</span>
