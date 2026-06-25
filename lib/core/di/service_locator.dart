@@ -9,6 +9,7 @@ import '../../domain/usecases/get_products.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/start_qr_payment.dart';
 import '../../domain/usecases/get_payment_status.dart';
+import '../../domain/usecases/update_order.dart';
 import '../../domain/usecases/complete_order.dart';
 import '../../data/repositories/product_repository_impl.dart';
 import '../../data/repositories/qr_payment_repository_impl.dart';
@@ -33,14 +34,15 @@ class ServiceLocator {
   late final GetMerchantInfoUseCase getMerchantInfoUseCase;
   late final StartQrPaymentUseCase startQrPaymentUseCase;
   late final GetPaymentStatusUseCase getPaymentStatusUseCase;
+  late final UpdateOrderUseCase updateOrderUseCase;
   late final CompleteOrderUseCase completeOrderUseCase;
 
   void init() {
     final settings = AppSettings();
     _dio = Dio(BaseOptions(
       baseUrl: settings.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 20),
       headers: {
         'Authorization': 'Bearer ${settings.bearerToken}',
         'Content-Type': 'application/json',
@@ -58,6 +60,7 @@ class ServiceLocator {
     getMerchantInfoUseCase = GetMerchantInfoUseCase(productRepository);
     startQrPaymentUseCase = StartQrPaymentUseCase(qrPaymentRepository);
     getPaymentStatusUseCase = GetPaymentStatusUseCase(qrPaymentRepository);
+    updateOrderUseCase = UpdateOrderUseCase(qrPaymentRepository);
     completeOrderUseCase = CompleteOrderUseCase(qrPaymentRepository);
   }
 
@@ -71,6 +74,7 @@ class ServiceLocator {
   QrPaymentCubit qrPaymentCubit() => QrPaymentCubit(
         startQrPayment: startQrPaymentUseCase,
         getPaymentStatus: getPaymentStatusUseCase,
+        updateOrder: updateOrderUseCase,
         completeOrder: completeOrderUseCase,
       );
 }

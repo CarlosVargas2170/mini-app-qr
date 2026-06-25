@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
+import '../models/update_order_request.dart';
 
 /// Excepcion generica de servidor.
 class ServerException implements Exception {
@@ -26,6 +27,10 @@ abstract class QrPaymentRemoteDataSource {
   /// Consulta el estado del pago QR.
   /// Endpoint: GET /payments/qr/status/:merchantId/:orderId
   Future<PaymentStatusDto> getPaymentStatus(int merchantId, int orderId);
+
+  /// Actualiza datos de un pedido existente (nombre, nit, etc).
+  /// Endpoint: PUT /orders/{id}
+  Future<void> updateOrder(int orderId, UpdateOrderRequestDto request);
 
   /// Completa un pedido pendiente.
   /// Endpoint: POST /orders/complete/:id
@@ -81,6 +86,15 @@ class QrPaymentRemoteDataSourceImpl implements QrPaymentRemoteDataSource {
       );
     } catch (e) {
       throw ServerException('getPaymentStatus failed: $e');
+    }
+  }
+
+  @override
+  Future<void> updateOrder(int orderId, UpdateOrderRequestDto request) async {
+    try {
+      await _dio.put('/orders/$orderId', data: request.toJson());
+    } catch (e) {
+      throw ServerException('updateOrder failed: $e');
     }
   }
 

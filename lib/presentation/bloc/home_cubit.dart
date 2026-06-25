@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
+import '../../domain/entities/product.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/get_product.dart';
 import 'home_state.dart';
@@ -30,35 +31,61 @@ class HomeCubit extends Cubit<HomeState> {
     debugPrint('[HomeCubit] load() iniciado');
 
     try {
-      final settings = AppSettings();
-      debugPrint('[HomeCubit] merchantId=${settings.merchantId}, productId=${settings.productId}');
-
-      debugPrint('[HomeCubit] Llamando GetProductUseCase...');
-      final product = await _getProduct(
-        settings.merchantId,
-        settings.productId,
-      );
-      debugPrint('[HomeCubit] Producto obtenido OK: id=${product.id}, nombre="${product.name}", precio=${product.price}');
-
-      debugPrint('[HomeCubit] Llamando GetMerchantInfoUseCase...');
-      final merchant = await _getMerchant(settings.merchantId);
-      debugPrint('[HomeCubit] Merchant obtenido OK: nombre="${merchant.name}"');
-
+      final result = await _loadWithRetry();
       emit(state.copyWith(
         status: HomeStatus.loaded,
         displayMode: DisplayMode.attract,
-        product: product,
-        merchantName: merchant.name,
+        product: result.product,
+        merchantName: result.merchantName,
       ));
       debugPrint('[HomeCubit] Estado emitido: loaded + attract');
     } catch (e, stack) {
-      debugPrint('[HomeCubit] load FAILED: $e');
+      debugPrint('[HomeCubit] load FAILED (incluyendo retry): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
       emit(state.copyWith(
         status: HomeStatus.error,
         errorMessage: 'No se pudo cargar el producto.\n${e.toString()}',
       ));
     }
+  }
+
+  Future<({Product product, String merchantName})> _loadWithRetry() async {
+    const maxRetries = 1;
+    const retryDelay = Duration(seconds: 2);
+
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        debugPrint('[HomeCubit] Reintentando en ${retryDelay.inSeconds}s... (intento ${attempt + 1}/${maxRetries + 1})');
+        await Future.delayed(retryDelay);
+      }
+
+      try {
+        final settings = AppSettings();
+        debugPrint('[HomeCubit] merchantId=${settings.merchantId}, productId=${settings.productId} (intento ${attempt + 1})');
+
+        debugPrint('[HomeCubit] Llamando GetProductUseCase...');
+        final product = await _getProduct(
+          settings.merchantId,
+          settings.productId,
+        );
+        debugPrint('[HomeCubit] Producto obtenido OK: id=${product.id}, nombre="${product.name}", precio=${product.price}');
+
+        debugPrint('[HomeCubit] Llamando GetMerchantInfoUseCase...');
+        final merchant = await _getMerchant(settings.merchantId);
+        debugPrint('[HomeCubit] Merchant obtenido OK: nombre="${merchant.name}"');
+
+        return (product: product, merchantName: merchant.name);
+      } catch (e) {
+        if (attempt < maxRetries) {
+          debugPrint('[HomeCubit] Intento ${attempt + 1} fallo: $e');
+          continue; // Reintentar
+        }
+        rethrow; // Agotados los reintentos, propagar error
+      }
+    }
+
+    // Nunca deberia llegar aqui
+    throw Exception('Agotados todos los intentos de carga');
   }
 
   /// Muestra el video de atraccion (robot cerca de persona).

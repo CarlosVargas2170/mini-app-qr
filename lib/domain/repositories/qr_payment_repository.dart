@@ -18,6 +18,15 @@ abstract class QrPaymentRepository {
   /// Consulta el estado actual del pago.
   Future<OrderStatus> getPaymentStatus(int merchantId, int orderId);
 
+  /// Actualiza datos del cliente en la orden.
+  Future<void> updateOrder({
+    required int orderId,
+    String? customerName,
+    String? nit,
+    String? businessName,
+    String? phoneNumber,
+  });
+
   /// Marca la orden como completada.
   Future<void> completeOrder(int orderId);
 }

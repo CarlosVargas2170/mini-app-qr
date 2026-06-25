@@ -4,6 +4,7 @@ import '../../domain/repositories/qr_payment_repository.dart';
 import '../datasources/qr_payment_remote_data_source.dart';
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
+import '../models/update_order_request.dart';
 
 class QrPaymentRepositoryImpl implements QrPaymentRepository {
   final QrPaymentRemoteDataSource _remote;
@@ -61,6 +62,23 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
   Future<OrderStatus> getPaymentStatus(int merchantId, int orderId) async {
     final dto = await _remote.getPaymentStatus(merchantId, orderId);
     return dto.status;
+  }
+
+  @override
+  Future<void> updateOrder({
+    required int orderId,
+    String? customerName,
+    String? nit,
+    String? businessName,
+    String? phoneNumber,
+  }) async {
+    final request = UpdateOrderRequestDto(
+      customerName: customerName,
+      nit: nit,
+      businessName: businessName,
+      phoneNumber: phoneNumber,
+    );
+    await _remote.updateOrder(orderId, request);
   }
 
   @override

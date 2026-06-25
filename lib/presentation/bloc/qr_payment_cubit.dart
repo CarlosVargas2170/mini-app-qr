@@ -6,6 +6,7 @@ import '../../domain/entities/order_status.dart';
 import '../../domain/usecases/complete_order.dart';
 import '../../domain/usecases/get_payment_status.dart';
 import '../../domain/usecases/start_qr_payment.dart';
+import '../../domain/usecases/update_order.dart';
 import 'qr_payment_state.dart';
 
 /// Cubit que gestiona el flujo completo de pago QR.
@@ -17,6 +18,7 @@ import 'qr_payment_state.dart';
 class QrPaymentCubit extends Cubit<QrPaymentState> {
   final StartQrPaymentUseCase _startQrPayment;
   final GetPaymentStatusUseCase _getPaymentStatus;
+  final UpdateOrderUseCase _updateOrder;
   final CompleteOrderUseCase _completeOrder;
   final Duration pollingInterval;
   Timer? _pollTimer;
@@ -24,10 +26,12 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   QrPaymentCubit({
     required StartQrPaymentUseCase startQrPayment,
     required GetPaymentStatusUseCase getPaymentStatus,
+    required UpdateOrderUseCase updateOrder,
     required CompleteOrderUseCase completeOrder,
     this.pollingInterval = const Duration(seconds: 3),
   })  : _startQrPayment = startQrPayment,
         _getPaymentStatus = getPaymentStatus,
+        _updateOrder = updateOrder,
         _completeOrder = completeOrder,
         super(const QrPaymentState());
 
@@ -103,6 +107,35 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   void reset() {
     _stopPolling();
     emit(const QrPaymentState());
+  }
+
+  /// Actualiza datos del cliente en la orden actual.
+  /// Solo funciona si hay un orderId activo.
+  Future<void> updateOrderDetails({
+    String? customerName,
+    String? nit,
+    String? businessName,
+    String? phoneNumber,
+  }) async {
+    final orderId = state.orderId;
+    if (orderId == null) {
+      debugPrint('[QrPaymentCubit] updateOrderDetails ignorado: no hay orderId');
+      return;
+    }
+
+    try {
+      debugPrint('[QrPaymentCubit] Actualizando orden $orderId...');
+      await _updateOrder(
+        orderId: orderId,
+        customerName: customerName,
+        nit: nit,
+        businessName: businessName,
+        phoneNumber: phoneNumber,
+      );
+      debugPrint('[QrPaymentCubit] Orden $orderId actualizada OK');
+    } catch (e) {
+      debugPrint('[QrPaymentCubit] updateOrderDetails FAILED: $e');
+    }
   }
 
   void _startPolling(int merchantId, int orderId) {
