@@ -22,8 +22,8 @@ class QrPaymentContent extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // El QR ocupa hasta el 55% de la altura disponible (max 520)
-        final qrSize = (constraints.maxHeight * 0.55).clamp(220.0, 520.0);
+        // El QR ocupa hasta el 62% de la altura disponible (max 580)
+        final qrSize = (constraints.maxHeight * 0.62).clamp(260.0, 580.0);
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -132,11 +132,11 @@ class QrPaymentContent extends StatelessWidget {
                                 key: const ValueKey('cancel_active'),
                                 onPressed: onCancel ?? () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.arrow_back_rounded,
-                                    color: AppColors.textMuted, size: 18),
+                                    color: AppColors.warning, size: 18),
                                 label: const Text(
                                   'Volver al inicio',
                                   style: TextStyle(
-                                      color: AppColors.textMuted, fontSize: 14),
+                                      color: AppColors.warning, fontSize: 14),
                                 ),
                               )
                             : Padding(

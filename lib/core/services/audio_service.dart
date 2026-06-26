@@ -74,7 +74,7 @@ class AudioService {
 
   /// Reproduce el saludo 'deseas un cafe?'.
   static Future<bool> playQuestion({bool force = false}) async =>
-      play('audio/question_coffe_old2.wav', force: force);
+      play('audio/question_coffe.wav', force: force);
 
   /// Reproduce el agradecimiento post-pago.
   static Future<bool> playThanks({bool force = false}) async =>
@@ -84,4 +84,8 @@ class AudioService {
   /// Cambia el asset si tu archivo tiene otro nombre.
   static Future<bool> playBuy({bool force = false}) async =>
       play('audio/purchase_buy.wav', force: force);
+
+  /// Reproduce el audio de notificacion de orden recibida.
+  static Future<bool> playThereIsAnOrder({bool force = false}) async =>
+      play('audio/there _is_an_order.wav', force: force);
 }

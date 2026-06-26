@@ -17,6 +17,8 @@ import 'ui_command_bus.dart';
 /// - `POST /play-audio`     -> Reproduce audio por query param (ej: ?asset=audio/foo.wav&volume=1.0)
 /// - `POST /play-question`  -> Reproduce audio de pregunta (legacy)
 /// - `POST /play-thanks`    -> Reproduce audio de agradecimiento (legacy)
+/// - `POST /play-buy`       -> Reproduce audio de compra (legacy)
+/// - `POST /play-order`     -> Reproduce audio de orden recibida
 /// --- Robot / UI ---
 /// - `POST /proximity/near` -> Muestra video de atraccion
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
@@ -133,6 +135,16 @@ class AppServer {
         'success': true,
         'played': played,
         'message': played ? 'Reproduciendo audio de compra' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-order' && method == 'POST') {
+      final played = await AudioService.playThereIsAnOrder();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de orden recibida' : 'Cooldown activo, audio omitido',
       });
       return;
     }
