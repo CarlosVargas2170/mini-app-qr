@@ -55,24 +55,28 @@ class HomeCubit extends Cubit<HomeState> {
 
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       if (attempt > 0) {
-        debugPrint('[HomeCubit] Reintentando en ${retryDelay.inSeconds}s... (intento ${attempt + 1}/${maxRetries + 1})');
+        debugPrint(
+            '[HomeCubit] Reintentando en ${retryDelay.inSeconds}s... (intento ${attempt + 1}/${maxRetries + 1})');
         await Future.delayed(retryDelay);
       }
 
       try {
         final settings = AppSettings();
-        debugPrint('[HomeCubit] merchantId=${settings.merchantId}, productId=${settings.productId} (intento ${attempt + 1})');
+        debugPrint(
+            '[HomeCubit] merchantId=${settings.merchantId}, productId=${settings.productId} (intento ${attempt + 1})');
 
         debugPrint('[HomeCubit] Llamando GetProductUseCase...');
         final product = await _getProduct(
           settings.merchantId,
           settings.productId,
         );
-        debugPrint('[HomeCubit] Producto obtenido OK: id=${product.id}, nombre="${product.name}", precio=${product.price}');
+        debugPrint(
+            '[HomeCubit] Producto obtenido OK: id=${product.id}, nombre="${product.name}", precio=${product.price}');
 
         debugPrint('[HomeCubit] Llamando GetMerchantInfoUseCase...');
         final merchant = await _getMerchant(settings.merchantId);
-        debugPrint('[HomeCubit] Merchant obtenido OK: nombre="${merchant.name}"');
+        debugPrint(
+            '[HomeCubit] Merchant obtenido OK: nombre="${merchant.name}"');
 
         return (product: product, merchantName: merchant.name);
       } catch (e) {
@@ -101,7 +105,8 @@ class HomeCubit extends Cubit<HomeState> {
 
     // Si estaba en error, intentar recargar el producto en segundo plano
     if (state.status == HomeStatus.error) {
-      debugPrint('[HomeCubit] showAttract() -> status=error, recargando producto en background...');
+      debugPrint(
+          '[HomeCubit] showAttract() -> status=error, recargando producto en background...');
       await load();
     }
   }
@@ -111,30 +116,40 @@ class HomeCubit extends Cubit<HomeState> {
   /// Requiere que el producto este cargado (status=loaded).
   /// Si esta en error, intenta recargar primero.
   Future<void> showProduct() async {
-    debugPrint('[HomeCubit] showProduct() llamado');
+    return showProductWithTimeout(_inactivityTimeout);
+  }
+
+  /// Muestra el producto con un timeout de inactividad personalizado.
+  ///
+  /// Util para cancelar pago y volver al GIF rapido (ej: 5s).
+  Future<void> showProductWithTimeout(Duration timeout) async {
+    debugPrint(
+        '[HomeCubit] showProductWithTimeout(${timeout.inSeconds}s) llamado');
     _cancelInactivityTimer();
 
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(displayMode: DisplayMode.product));
       debugPrint('[HomeCubit] Estado emitido: displayMode=product');
-      _startInactivityTimer();
+      _startInactivityTimer(timeout);
       return;
     }
 
     if (state.status == HomeStatus.error) {
-      debugPrint('[HomeCubit] showProduct() -> status=error, recargando...');
+      debugPrint(
+          '[HomeCubit] showProductWithTimeout() -> status=error, recargando...');
       await load();
       if (state.status == HomeStatus.loaded) {
         emit(state.copyWith(displayMode: DisplayMode.product));
         debugPrint('[HomeCubit] Recarga OK -> displayMode=product');
-        _startInactivityTimer();
+        _startInactivityTimer(timeout);
       } else {
         debugPrint('[HomeCubit] Recarga fallo, no se puede mostrar producto');
       }
       return;
     }
 
-    debugPrint('[HomeCubit] showProduct() ignorado: status=${state.status} (aun no esta listo)');
+    debugPrint(
+        '[HomeCubit] showProductWithTimeout() ignorado: status=${state.status}');
   }
 
   /// Vuelve a reposo / espera.
@@ -149,16 +164,20 @@ class HomeCubit extends Cubit<HomeState> {
 
     // Si estaba en error, intentar recargar el producto en segundo plano
     if (state.status == HomeStatus.error) {
-      debugPrint('[HomeCubit] showIdle() -> status=error, recargando producto en background...');
+      debugPrint(
+          '[HomeCubit] showIdle() -> status=error, recargando producto en background...');
       await load();
     }
   }
 
-  void _startInactivityTimer() {
-    debugPrint('[HomeCubit] Timer de inactividad iniciado (${_inactivityTimeout.inSeconds}s)');
-    _inactivityTimer = Timer(_inactivityTimeout, () {
+  void _startInactivityTimer([Duration? timeout]) {
+    final duration = timeout ?? _inactivityTimeout;
+    debugPrint(
+        '[HomeCubit] Timer de inactividad iniciado (${duration.inSeconds}s)');
+    _inactivityTimer = Timer(duration, () {
       if (!isClosed) {
-        debugPrint('[HomeCubit] Timer de inactividad expirado -> volviendo a attract');
+        debugPrint(
+            '[HomeCubit] Timer de inactividad expirado -> volviendo a attract');
         showAttract();
       }
     });

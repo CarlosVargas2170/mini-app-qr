@@ -60,18 +60,43 @@ class _HomeViewState extends State<_HomeView> {
     final cubit = context.read<HomeCubit>();
     switch (cmd) {
       case UiCommand.showAttract:
+        _cancelActivePayment();
+        _popPaymentIfOpen();
         await cubit.showAttract();
         break;
       case UiCommand.showProduct:
+        _cancelActivePayment();
+        _popPaymentIfOpen();
         await cubit.showProduct();
         break;
+      case UiCommand.cancelPayment:
+        // Cancelar polling activo y volver al producto con timeout corto para attract
+        _cancelActivePayment();
+        _popPaymentIfOpen();
+        await cubit.showProductWithTimeout(const Duration(seconds: 5));
+        break;
       case UiCommand.showIdle:
+        _cancelActivePayment();
+        _popPaymentIfOpen();
         await cubit.showIdle();
         break;
       case UiCommand.reloadProduct:
         debugPrint('[HomePage] Recargando producto por cambio de config...');
         await cubit.load();
         break;
+    }
+  }
+
+  /// Cancela el cubit de pago activo y libera la referencia.
+  void _cancelActivePayment() {
+    _activePaymentCubit?.cancel();
+    _activePaymentCubit = null;
+  }
+
+  /// Cierra la pantalla de pago si esta abierta en la pila de navegacion.
+  void _popPaymentIfOpen() {
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -335,6 +360,17 @@ class _HomeViewState extends State<_HomeView> {
                   ],
                 },
               ],
+            },
+            onSuccess: () {
+              // Pago exitoso: cancelar cubit, cerrar pantalla, volver al GIF
+              _activePaymentCubit?.cancel();
+              _activePaymentCubit = null;
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+              if (mounted) {
+                context.read<HomeCubit>().showAttract();
+              }
             },
           ),
         ),

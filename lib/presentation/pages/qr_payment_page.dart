@@ -18,6 +18,7 @@ class QrPaymentPage extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
   final Map<String, dynamic>? menuData;
   final String? paymentReferenceOverride;
+  final VoidCallback? onSuccess;
 
   const QrPaymentPage({
     super.key,
@@ -29,6 +30,7 @@ class QrPaymentPage extends StatefulWidget {
     required this.cartItems,
     this.menuData,
     this.paymentReferenceOverride,
+    this.onSuccess,
   });
 
   @override
@@ -37,8 +39,10 @@ class QrPaymentPage extends StatefulWidget {
 
 class _QrPaymentPageState extends State<QrPaymentPage> {
   static const _cancelDelay = 10;
+  static const _successReturnDelay = Duration(seconds: 5);
   int _secondsLeft = _cancelDelay;
   Timer? _countdownTimer;
+  Timer? _successReturnTimer;
 
   @override
   void initState() {
@@ -75,6 +79,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _successReturnTimer?.cancel();
     // Safety net: cancelar polling del cubit si la pagina se destruye
     context.read<QrPaymentCubit>().cancel();
     super.dispose();
@@ -89,6 +94,12 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           listener: (context, state) {
             if (state.status == QrPaymentStatus.success) {
               AudioService.playThanks();
+              // Volver al GIF automaticamente despues de unos segundos
+              _successReturnTimer?.cancel();
+              _successReturnTimer = Timer(_successReturnDelay, () {
+                if (!mounted) return;
+                widget.onSuccess?.call();
+              });
             } else if (state.status == QrPaymentStatus.failed) {
               // El error se muestra visualmente en el builder
             }

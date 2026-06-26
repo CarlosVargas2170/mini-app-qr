@@ -62,9 +62,12 @@ class AppServer {
 
     // CORS permisivo para funcionar con ngrok, navegadores, PWA, etc.
     response.headers.add('Access-Control-Allow-Origin', '*');
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH');
-    response.headers.add('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With');
-    response.headers.add('Access-Control-Max-Age', '86400'); // Cache preflight 24h
+    response.headers.add('Access-Control-Allow-Methods',
+        'GET, POST, OPTIONS, PUT, DELETE, PATCH');
+    response.headers.add('Access-Control-Allow-Headers',
+        'Origin, Content-Type, Accept, Authorization, X-Requested-With');
+    response.headers
+        .add('Access-Control-Max-Age', '86400'); // Cache preflight 24h
 
     if (method == 'OPTIONS') {
       response.statusCode = HttpStatus.noContent;
@@ -101,12 +104,15 @@ class AppServer {
         return;
       }
 
-      final played = await AudioService.play(asset, volume: volume, force: force);
+      final played =
+          await AudioService.play(asset, volume: volume, force: force);
       _sendJson(response, 200, {
         'success': true,
         'played': played,
         'asset': asset,
-        'message': played ? 'Reproduciendo "$asset"' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo "$asset"'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -116,7 +122,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de pregunta' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de pregunta'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -126,7 +134,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de agradecimiento' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de agradecimiento'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -136,7 +146,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de compra' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de compra'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -146,7 +158,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de orden recibida' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de orden recibida'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -156,7 +170,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de atencion' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de atencion'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -166,7 +182,9 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'played': played,
-        'message': played ? 'Reproduciendo audio de cobrar bandeja' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo audio de cobrar bandeja'
+            : 'Cooldown activo, audio omitido',
       });
       return;
     }
@@ -174,7 +192,11 @@ class AppServer {
     // --- Robot / Proximity endpoints ---
     if (path == '/proximity/near' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showAttract);
-      _sendJson(response, 200, {'success': true, 'mode': 'attract', 'message': 'Mostrando video de atraccion'});
+      _sendJson(response, 200, {
+        'success': true,
+        'mode': 'attract',
+        'message': 'Mostrando video de atraccion'
+      });
       return;
     }
 
@@ -194,13 +216,28 @@ class AppServer {
 
     if (path == '/product' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProduct);
-      _sendJson(response, 200, {'success': true, 'mode': 'product', 'audio': false, 'message': 'Mostrando solo el producto'});
+      _sendJson(response, 200, {
+        'success': true,
+        'mode': 'product',
+        'audio': false,
+        'message': 'Mostrando solo el producto'
+      });
+      return;
+    }
+
+    if (path == '/cancel-payment' && method == 'POST') {
+      UiCommandBus.emit(UiCommand.cancelPayment);
+      _sendJson(response, 200, {
+        'success': true,
+        'message': 'Pago cancelado, volviendo al producto'
+      });
       return;
     }
 
     if (path == '/proximity/away' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showIdle);
-      _sendJson(response, 200, {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
+      _sendJson(response, 200,
+          {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
       return;
     }
 
@@ -217,12 +254,14 @@ class AppServer {
     }
 
     // --- 404 ---
-    _sendJson(response, 404, {'success': false, 'message': 'Endpoint no encontrado'});
+    _sendJson(
+        response, 404, {'success': false, 'message': 'Endpoint no encontrado'});
   }
 
   // -- Audio handlers --
 
-  Future<void> _handlePlayAudio(HttpRequest request, HttpResponse response) async {
+  Future<void> _handlePlayAudio(
+      HttpRequest request, HttpResponse response) async {
     try {
       final body = await utf8.decoder.bind(request).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
@@ -239,15 +278,19 @@ class AppServer {
       final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
       final force = json['force'] == true;
 
-      final played = await AudioService.play(asset, volume: volume, force: force);
+      final played =
+          await AudioService.play(asset, volume: volume, force: force);
       _sendJson(response, 200, {
         'success': true,
         'played': played,
         'asset': asset,
-        'message': played ? 'Reproduciendo "$asset"' : 'Cooldown activo, audio omitido',
+        'message': played
+            ? 'Reproduciendo "$asset"'
+            : 'Cooldown activo, audio omitido',
       });
     } catch (e) {
-      _sendJson(response, 400, {'success': false, 'message': 'Error reproduciendo audio: $e'});
+      _sendJson(response, 400,
+          {'success': false, 'message': 'Error reproduciendo audio: $e'});
     }
   }
 
@@ -266,7 +309,8 @@ class AppServer {
     });
   }
 
-  Future<void> _handlePostConfig(HttpRequest request, HttpResponse response) async {
+  Future<void> _handlePostConfig(
+      HttpRequest request, HttpResponse response) async {
     try {
       final body = await utf8.decoder.bind(request).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
@@ -315,13 +359,15 @@ class AppServer {
 
       // Recargar producto en caliente si cambio merchantId o productId
       if (needsReload) {
-        debugPrint('[AppServer] Config cambio (merchant/product) -> emitiendo reloadProduct');
+        debugPrint(
+            '[AppServer] Config cambio (merchant/product) -> emitiendo reloadProduct');
         UiCommandBus.emit(UiCommand.reloadProduct);
       }
 
       final messages = <String>[];
       if (needsReload) messages.add('Producto recargado en caliente.');
-      if (needsRestart) messages.add('Reinicia la app para aplicar cambios de URL/Token.');
+      if (needsRestart)
+        messages.add('Reinicia la app para aplicar cambios de URL/Token.');
       if (messages.isEmpty) messages.add('Configuracion guardada.');
 
       _sendJson(response, 200, {
@@ -332,13 +378,15 @@ class AppServer {
         'needsReload': needsReload,
       });
     } catch (e) {
-      _sendJson(response, 400, {'success': false, 'message': 'JSON invalido: $e'});
+      _sendJson(
+          response, 400, {'success': false, 'message': 'JSON invalido: $e'});
     }
   }
 
   // -- Helpers --
 
-  void _sendJson(HttpResponse response, int statusCode, Map<String, dynamic> data) {
+  void _sendJson(
+      HttpResponse response, int statusCode, Map<String, dynamic> data) {
     response.statusCode = statusCode;
     response.write(jsonEncode(data));
     response.close();
