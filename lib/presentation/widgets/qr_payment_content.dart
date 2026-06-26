@@ -32,9 +32,11 @@ class QrPaymentContent extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SizedBox(height: 40),
+
                   // Header con boton atras
                   Row(
                     children: [
@@ -152,6 +154,8 @@ class QrPaymentContent extends StatelessWidget {
                       ),
                     ],
                   ),
+
+                  const Spacer(),
                 ],
               ),
             ),
