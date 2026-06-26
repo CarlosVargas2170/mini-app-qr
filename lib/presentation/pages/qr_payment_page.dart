@@ -48,7 +48,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       context.read<QrPaymentCubit>().startQrPayment(
             merchantId: widget.merchantId,
             amount: widget.amount,
-            customerName: 'Totem Mesero', // Hardcoded
+            customerName: 'Robot Mesero', // Hardcoded
             phoneNumber: widget.phoneNumber,
             whereEat: widget.whereEat,
             cartItems: widget.cartItems,
