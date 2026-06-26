@@ -60,8 +60,14 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
 
   void _startCountdown() {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) { timer.cancel(); return; }
-      if (_secondsLeft <= 0) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_secondsLeft <= 0) {
+        timer.cancel();
+        return;
+      }
       setState(() => _secondsLeft--);
     });
   }
@@ -69,6 +75,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    // Safety net: cancelar polling del cubit si la pagina se destruye
+    context.read<QrPaymentCubit>().cancel();
     super.dispose();
   }
 
@@ -87,7 +95,9 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           },
           builder: (context, state) {
             return switch (state.status) {
-              QrPaymentStatus.initial || QrPaymentStatus.loading => _buildLoading(),
+              QrPaymentStatus.initial ||
+              QrPaymentStatus.loading =>
+                _buildLoading(),
               QrPaymentStatus.qrReady => QrPaymentContent(
                   state: state,
                   secondsLeft: _secondsLeft,
@@ -103,10 +113,13 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                   icon: Icons.error_outline,
                   color: AppColors.error,
                   title: 'PAGO FALLIDO',
-                  message: state.errorMessage ?? 'El pago fue rechazado o expiró.',
+                  message:
+                      state.errorMessage ?? 'El pago fue rechazado o expiró.',
                   showRetry: true,
                   onRetry: () {
-                    context.read<QrPaymentCubit>().retryPolling(widget.merchantId);
+                    context
+                        .read<QrPaymentCubit>()
+                        .retryPolling(widget.merchantId);
                   },
                   onBack: () => Navigator.of(context).pop(),
                 ),
@@ -115,6 +128,12 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                   color: AppColors.textMuted,
                   title: 'CANCELADO',
                   message: 'El pago fue cancelado.',
+                  // showRetry: true,
+                  // onRetry: () {
+                  //   context
+                  //       .read<QrPaymentCubit>()
+                  //       .retryPolling(widget.merchantId);
+                  // },
                   onBack: () => Navigator.of(context).pop(),
                 ),
             };

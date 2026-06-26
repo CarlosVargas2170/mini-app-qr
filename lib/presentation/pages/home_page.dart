@@ -8,6 +8,7 @@ import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../bloc/home_cubit.dart';
 import '../bloc/home_state.dart';
+import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/order_summary.dart';
 import '../widgets/product_card.dart';
@@ -34,6 +35,7 @@ class _HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<_HomeView> {
   StreamSubscription<UiCommand>? _commandSub;
+  QrPaymentCubit? _activePaymentCubit;
 
   @override
   void initState() {
@@ -44,6 +46,8 @@ class _HomeViewState extends State<_HomeView> {
   @override
   void dispose() {
     _commandSub?.cancel();
+    _activePaymentCubit?.close();
+    _activePaymentCubit = null;
     super.dispose();
   }
 
@@ -81,7 +85,8 @@ class _HomeViewState extends State<_HomeView> {
             // Side-effects globales si son necesarios
           },
           builder: (context, state) {
-            debugPrint('[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
+            debugPrint(
+                '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
             // El displayMode tiene prioridad:
             // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
             // - product solo se muestra si el producto realmente esta cargado.
@@ -89,10 +94,10 @@ class _HomeViewState extends State<_HomeView> {
               DisplayMode.attract => const AttractGifPlayer(),
               DisplayMode.idle => _buildIdle(),
               DisplayMode.product => switch (state.status) {
-                HomeStatus.initial || HomeStatus.loading => _buildLoading(),
-                HomeStatus.error => _buildError(state.errorMessage, context),
-                HomeStatus.loaded => _buildContent(context, state),
-              },
+                  HomeStatus.initial || HomeStatus.loading => _buildLoading(),
+                  HomeStatus.error => _buildError(state.errorMessage, context),
+                  HomeStatus.loaded => _buildContent(context, state),
+                },
             };
           },
         ),
@@ -129,7 +134,8 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
-  Widget _buildPortraitLayout(BuildContext context, HomeState state, {required bool isTall}) {
+  Widget _buildPortraitLayout(BuildContext context, HomeState state,
+      {required bool isTall}) {
     final product = state.product!;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -251,7 +257,8 @@ class _HomeViewState extends State<_HomeView> {
             Text(
               errorMessage ?? 'Ocurrió un error',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 16),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -274,13 +281,15 @@ class _HomeViewState extends State<_HomeView> {
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.background,
           padding: const EdgeInsets.symmetric(vertical: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
-        icon: const Icon(Icons.qr_code, size: 26),
+        icon: const Icon(Icons.qr_code, size: 28),
         label: const Text(
           'PAGAR CON QR',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+          style: TextStyle(
+              fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.5),
         ),
       ),
     );
@@ -289,9 +298,14 @@ class _HomeViewState extends State<_HomeView> {
   void _goToPayment(BuildContext context, HomeState state) {
     final p = state.product!;
 
-    final cubit = sl.qrPaymentCubit();
+    // Disposear cubit anterior si existia (evita pollings huerfanos)
+    _activePaymentCubit?.close();
 
-    Navigator.of(context).push(
+    final cubit = sl.qrPaymentCubit();
+    _activePaymentCubit = cubit;
+
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => BlocProvider.value(
           value: cubit,
@@ -325,6 +339,11 @@ class _HomeViewState extends State<_HomeView> {
           ),
         ),
       ),
-    );
+    )
+        .then((_) {
+      // Al volver, cancelar polling y liberar el cubit
+      _activePaymentCubit?.cancel();
+      _activePaymentCubit = null;
+    });
   }
 }
