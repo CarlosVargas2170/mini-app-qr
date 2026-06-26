@@ -99,6 +99,16 @@
             <span class="label">Orden</span>
             <span class="sub">Nueva orden recibida</span>
           </button>
+          <button class="btn btn-yellow" onclick="callEndpoint('POST','/play-attention')">
+            <span class="icon">⚠️</span>
+            <span class="label">Atencion</span>
+            <span class="sub">Disculpa, atencion</span>
+          </button>
+          <button class="btn btn-blue" onclick="callEndpoint('POST','/play-collect-tray')">
+            <span class="icon">🍽️</span>
+            <span class="label">Bandeja</span>
+            <span class="sub">Cobrar bandeja</span>
+          </button>
           <button class="btn btn-red" onclick="callEndpoint('POST','/audio/stop')">
             <span class="icon">🔇</span>
             <span class="label">Detener</span>

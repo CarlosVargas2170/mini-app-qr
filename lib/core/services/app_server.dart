@@ -19,6 +19,8 @@ import 'ui_command_bus.dart';
 /// - `POST /play-thanks`    -> Reproduce audio de agradecimiento (legacy)
 /// - `POST /play-buy`       -> Reproduce audio de compra (legacy)
 /// - `POST /play-order`     -> Reproduce audio de orden recibida
+/// - `POST /play-attention` -> Reproduce audio de atencion / disculpa
+/// - `POST /play-collect-tray` -> Reproduce audio de cobrar bandeja
 /// --- Robot / UI ---
 /// - `POST /proximity/near` -> Muestra video de atraccion
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
@@ -145,6 +147,26 @@ class AppServer {
         'success': true,
         'played': played,
         'message': played ? 'Reproduciendo audio de orden recibida' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-attention' && method == 'POST') {
+      final played = await AudioService.playAttentionExcuseMe();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de atencion' : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-collect-tray' && method == 'POST') {
+      final played = await AudioService.playCollectTray();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played ? 'Reproduciendo audio de cobrar bandeja' : 'Cooldown activo, audio omitido',
       });
       return;
     }

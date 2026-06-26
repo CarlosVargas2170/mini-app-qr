@@ -88,4 +88,10 @@ class AudioService {
   /// Reproduce el audio de notificacion de orden recibida.
   static Future<bool> playThereIsAnOrder({bool force = false}) async =>
       play('audio/there _is_an_order.wav', force: force);
+
+  static Future<bool> playAttentionExcuseMe({bool force = false}) async =>
+    play('audio/attention_excuse_me.mp3', force: force);
+
+  static Future<bool> playCollectTray({bool force = false}) async =>
+    play('audio/collect_tray.mp3', force: force);
 }
