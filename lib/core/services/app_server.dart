@@ -21,6 +21,7 @@ import 'ui_command_bus.dart';
 /// - `POST /play-order`     -> Reproduce audio de orden recibida
 /// - `POST /play-attention` -> Reproduce audio de atencion / disculpa
 /// - `POST /play-collect-tray` -> Reproduce audio de cobrar bandeja
+/// - `POST /play-coffee`       -> Reproduce audio "aqui esta tu cafe"
 /// --- Robot / UI ---
 /// - `POST /proximity/near` -> Muestra video de atraccion
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
@@ -184,6 +185,18 @@ class AppServer {
         'played': played,
         'message': played
             ? 'Reproduciendo audio de cobrar bandeja'
+            : 'Cooldown activo, audio omitido',
+      });
+      return;
+    }
+
+    if (path == '/play-coffee' && method == 'POST') {
+      final played = await AudioService.playHereIsCoffee();
+      _sendJson(response, 200, {
+        'success': true,
+        'played': played,
+        'message': played
+            ? 'Reproduciendo audio aqui esta tu cafe'
             : 'Cooldown activo, audio omitido',
       });
       return;

@@ -32,7 +32,8 @@ class AudioService {
         _lastPlayed != null &&
         now.difference(_lastPlayed!) < cooldown) {
       final remaining = cooldown - now.difference(_lastPlayed!);
-      debugPrint('[AudioService] Cooldown activo. Faltan ${remaining.inSeconds}s para "$assetPath"');
+      debugPrint(
+          '[AudioService] Cooldown activo. Faltan ${remaining.inSeconds}s para "$assetPath"');
       return false;
     }
     _lastPlayed = now;
@@ -90,8 +91,12 @@ class AudioService {
       play('audio/there _is_an_order.wav', force: force);
 
   static Future<bool> playAttentionExcuseMe({bool force = false}) async =>
-    play('audio/attention_excuse_me.mp3', force: force);
+      play('audio/attention_excuse_me.mp3', force: force);
 
   static Future<bool> playCollectTray({bool force = false}) async =>
-    play('audio/collect_tray.mp3', force: force);
+      play('audio/collect_tray.mp3', force: force);
+
+  /// Reproduce el audio de "aqui esta tu cafe".
+  static Future<bool> playHereIsCoffee({bool force = false}) async =>
+      play('audio/here_is_coffee.mp3', force: force);
 }

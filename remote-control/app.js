@@ -1,19 +1,17 @@
 /**
  * Control Remoto - Mini App QR
- * Panel de control para enviar comandos al robot desde cualquier navegador.
+ * Panel de control para enviar comandos al robot.
  */
 
 const LS_KEY_URL = 'rc_baseUrl';
 
-// --- Helpers ---
+// ── Helpers ──
 
 function getBaseUrl() {
   const input = document.getElementById('baseUrl');
   let url = input.value.trim();
   if (!url) url = 'http://localhost:8080';
-  // Guardar en localStorage
   localStorage.setItem(LS_KEY_URL, url);
-  // Quitar slash final
   return url.replace(/\/$/, '');
 }
 
@@ -24,6 +22,7 @@ function loadSavedUrl() {
 
 function log(message, type = 'info') {
   const body = document.getElementById('logBody');
+  if (!body) return;
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
   const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
@@ -41,16 +40,16 @@ function setConnectionStatus(online) {
   const text = document.getElementById('connText');
   if (online) {
     dot.className = 'dot online';
-    text.textContent = 'Conectado';
-    text.style.color = 'var(--green)';
+    text.textContent = 'Online';
+    text.style.color = 'var(--accent-emerald)';
   } else {
     dot.className = 'dot offline';
-    text.textContent = 'Sin conexion';
+    text.textContent = 'Offline';
     text.style.color = 'var(--red)';
   }
 }
 
-// --- Core ---
+// ── Core ──
 
 async function callEndpoint(method, path, body = null) {
   const baseUrl = getBaseUrl();
@@ -59,12 +58,9 @@ async function callEndpoint(method, path, body = null) {
 
   const options = {
     method,
-    headers: {
-      'Accept': 'application/json',
-    },
+    headers: { 'Accept': 'application/json' },
   };
 
-  // Solo agregar Content-Type si hay body (POST/PUT con datos)
   if (body && (method === 'POST' || method === 'PUT')) {
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
@@ -78,10 +74,10 @@ async function callEndpoint(method, path, body = null) {
 
     if (res.ok) {
       setConnectionStatus(true);
-      log(`OK ${res.status} -> ${JSON.stringify(data)}`, 'ok');
+      log(`OK ${res.status} → ${JSON.stringify(data)}`, 'ok');
     } else {
       setConnectionStatus(false);
-      log(`ERR ${res.status} -> ${JSON.stringify(data)}`, 'err');
+      log(`ERR ${res.status} → ${JSON.stringify(data)}`, 'err');
     }
     return { ok: res.ok, status: res.status, data };
   } catch (err) {
@@ -92,15 +88,15 @@ async function callEndpoint(method, path, body = null) {
 }
 
 async function testConnection() {
-  log('Probando conexion...', 'info');
+  log('Probando conexión...', 'info');
   const result = await callEndpoint('GET', '/config');
   if (result.ok) {
     const cfg = result.data?.data || {};
-    log(`Conectado! Merchant=${cfg.merchantId}, Product=${cfg.productId}`, 'ok');
+    log(`¡Conectado! Merchant=${cfg.merchantId}, Product=${cfg.productId}`, 'ok');
   }
 }
 
-// --- Audio custom ---
+// ── Audio custom ──
 
 async function playCustomAudio() {
   const asset = document.getElementById('customAsset').value.trim();
@@ -108,14 +104,14 @@ async function playCustomAudio() {
   const force = document.getElementById('customForce').checked;
 
   if (!asset) {
-    log('Debes escribir la ruta del asset de audio', 'warn');
+    log('Escribe la ruta del asset de audio', 'warn');
     return;
   }
 
   await callEndpoint('POST', '/audio/play', { asset, volume, force });
 }
 
-// --- Config ---
+// ── Config ──
 
 async function updateConfig() {
   const body = {};
@@ -136,21 +132,13 @@ async function updateConfig() {
 
   const result = await callEndpoint('POST', '/config', body);
   if (result.ok) {
-    log('Configuracion guardada. Reinicia la app para aplicar cambios.', 'ok');
+    log('Configuración guardada. Reinicia la app para aplicar.', 'ok');
   }
 }
 
-// --- Init ---
+// ── Init ──
 
 window.addEventListener('DOMContentLoaded', () => {
   loadSavedUrl();
-
-  // Toggle logs
-  const logHeader = document.querySelector('.log-header');
-  const logPanel = document.getElementById('logPanel');
-  logHeader.addEventListener('click', () => {
-    logPanel.classList.toggle('collapsed');
-  });
-
-  log('Panel de control cargado. Configura la IP y pulsa Probar.', 'info');
+  log('Panel de control listo. Configura la IP y pulsa Conectar.', 'info');
 });
