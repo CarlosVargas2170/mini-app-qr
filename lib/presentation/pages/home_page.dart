@@ -177,7 +177,10 @@ class _HomeViewState extends State<_HomeView> {
               const SizedBox(height: 8),
               Expanded(
                 flex: isTall ? 3 : 2,
-                child: ProductCard(product: product),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 40),
+                  child: ProductCard(product: product),
+                ),
               ),
               const SizedBox(height: 16),
               OrderSummary(product: product),
@@ -194,7 +197,7 @@ class _HomeViewState extends State<_HomeView> {
   Widget _buildWideLayout(BuildContext context, HomeState state) {
     final product = state.product!;
     return Padding(
-      padding: const EdgeInsets.all(96),
+      padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
