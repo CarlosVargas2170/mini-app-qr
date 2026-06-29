@@ -91,12 +91,12 @@ class AudioService {
       play('audio/there _is_an_order.wav', force: force);
 
   static Future<bool> playAttentionExcuseMe({bool force = false}) async =>
-      play('audio/attention_excuse_me.mp3', force: force);
+      play('audio/attention_excuse_me.wav', force: force);
 
   static Future<bool> playCollectTray({bool force = false}) async =>
-      play('audio/collect_tray.mp3', force: force);
+      play('audio/collect_tray.wav', force: force);
 
   /// Reproduce el audio de "aqui esta tu cafe".
   static Future<bool> playHereIsCoffee({bool force = false}) async =>
-      play('audio/here_is_coffee.mp3', force: force);
+      play('audio/here_is_coffee.wav', force: force);
 }
