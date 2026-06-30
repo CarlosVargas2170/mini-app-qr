@@ -10,6 +10,8 @@ import '../bloc/home_cubit.dart';
 import '../bloc/home_state.dart';
 import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
+import '../widgets/audio_overlay_wrapper.dart';
+import '../widgets/audio_overlay_widget.dart';
 import '../widgets/order_summary.dart';
 import '../widgets/product_card.dart';
 import 'qr_payment_page.dart';
@@ -102,29 +104,32 @@ class _HomeViewState extends State<_HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: BlocConsumer<HomeCubit, HomeState>(
-          listener: (context, state) {
-            // Side-effects globales si son necesarios
-          },
-          builder: (context, state) {
-            debugPrint(
-                '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
-            // El displayMode tiene prioridad:
-            // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
-            // - product solo se muestra si el producto realmente esta cargado.
-            return switch (state.displayMode) {
-              DisplayMode.attract => const AttractGifPlayer(),
-              DisplayMode.idle => _buildIdle(),
-              DisplayMode.product => switch (state.status) {
-                  HomeStatus.initial || HomeStatus.loading => _buildLoading(),
-                  HomeStatus.error => _buildError(state.errorMessage, context),
-                  HomeStatus.loaded => _buildContent(context, state),
-                },
-            };
-          },
+    return AudioOverlayWrapper(
+      position: AudioOverlayPosition.bottom,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: BlocConsumer<HomeCubit, HomeState>(
+            listener: (context, state) {
+              // Side-effects globales si son necesarios
+            },
+            builder: (context, state) {
+              debugPrint(
+                  '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
+              // El displayMode tiene prioridad:
+              // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
+              // - product solo se muestra si el producto realmente esta cargado.
+              return switch (state.displayMode) {
+                DisplayMode.attract => const AttractGifPlayer(),
+                DisplayMode.idle => _buildIdle(),
+                DisplayMode.product => switch (state.status) {
+                    HomeStatus.initial || HomeStatus.loading => _buildLoading(),
+                    HomeStatus.error => _buildError(state.errorMessage, context),
+                    HomeStatus.loaded => _buildContent(context, state),
+                  },
+              };
+            },
+          ),
         ),
       ),
     );

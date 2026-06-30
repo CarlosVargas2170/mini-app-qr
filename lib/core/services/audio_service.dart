@@ -1,5 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import '../constants/audio_messages.dart';
+import 'audio_notification_service.dart';
 
 /// Servicio para reproducir assets de audio con cooldown anti-spam.
 ///
@@ -18,12 +20,14 @@ class AudioService {
   /// - [assetPath]: ruta relativa dentro de `assets/`. Ej: `audio/saludo.wav`.
   /// - [force]: si es `true`, ignora el cooldown.
   /// - [volume]: volumen entre 0.0 y 1.0 (por defecto 1.0).
+  /// - [displayText]: texto a mostrar en el overlay (opcional).
   ///
   /// Retorna `true` si se reprodujo, `false` si se bloqueo por cooldown.
   static Future<bool> play(
     String assetPath, {
     bool force = false,
     double volume = 1.0,
+    String? displayText,
   }) async {
     final now = DateTime.now();
 
@@ -46,14 +50,17 @@ class AudioService {
 
     try {
       debugPrint('[AudioService] Reproduciendo: $assetPath (volume=$volume)');
+      AudioNotificationService.notifyPlaying(assetPath, displayText: displayText);
       await player.setVolume(volume);
       await player.play(AssetSource(assetPath));
       await player.onPlayerComplete.first;
       debugPrint('[AudioService] Finalizado: $assetPath');
+      AudioNotificationService.notifyStopped();
       return true;
     } catch (e, stack) {
       debugPrint('[AudioService] ERROR reproduciendo "$assetPath": $e');
       debugPrint('[AudioService] StackTrace: $stack');
+      AudioNotificationService.notifyStopped();
       return false;
     } finally {
       await player.dispose();
@@ -70,33 +77,34 @@ class AudioService {
       await _currentPlayer!.stop();
       await _currentPlayer!.dispose();
       _currentPlayer = null;
+      AudioNotificationService.notifyStopped();
     }
   }
 
   /// Reproduce el saludo 'deseas un cafe?'.
-  static Future<bool> playQuestion({bool force = false}) async =>
-      play('audio/question_coffe.wav', force: force);
+  static Future<bool> playQuestion({bool force = false, String? displayText}) async =>
+      play('audio/question_coffe.wav', force: force, displayText: displayText ?? AudioMessages.question);
 
   /// Reproduce el agradecimiento post-pago.
-  static Future<bool> playThanks({bool force = false}) async =>
-      play('audio/thanks_shopping.wav', force: force);
+  static Future<bool> playThanks({bool force = false, String? displayText}) async =>
+      play('audio/thanks_shopping.wav', force: force, displayText: displayText ?? AudioMessages.thanks);
 
   /// Reproduce el audio de invitacion a comprar.
   /// Cambia el asset si tu archivo tiene otro nombre.
-  static Future<bool> playBuy({bool force = false}) async =>
-      play('audio/purchase_buy.wav', force: force);
+  static Future<bool> playBuy({bool force = false, String? displayText}) async =>
+      play('audio/purchase_buy.wav', force: force, displayText: displayText ?? AudioMessages.buy);
 
   /// Reproduce el audio de notificacion de orden recibida.
-  static Future<bool> playThereIsAnOrder({bool force = false}) async =>
-      play('audio/there _is_an_order.wav', force: force);
+  static Future<bool> playThereIsAnOrder({bool force = false, String? displayText}) async =>
+      play('audio/there _is_an_order.wav', force: force, displayText: displayText ?? AudioMessages.orderReceived);
 
-  static Future<bool> playAttentionExcuseMe({bool force = false}) async =>
-      play('audio/attention_excuse_me.wav', force: force);
+  static Future<bool> playAttentionExcuseMe({bool force = false, String? displayText}) async =>
+      play('audio/attention_excuse_me.wav', force: force, displayText: displayText ?? AudioMessages.attention);
 
-  static Future<bool> playCollectTray({bool force = false}) async =>
-      play('audio/collect_tray.wav', force: force);
+  static Future<bool> playCollectTray({bool force = false, String? displayText}) async =>
+      play('audio/collect_tray.wav', force: force, displayText: displayText ?? AudioMessages.collectTray);
 
   /// Reproduce el audio de "aqui esta tu cafe".
-  static Future<bool> playHereIsCoffee({bool force = false}) async =>
-      play('audio/here_is_coffee.wav', force: force);
+  static Future<bool> playHereIsCoffee({bool force = false, String? displayText}) async =>
+      play('audio/here_is_coffee.wav', force: force, displayText: displayText ?? AudioMessages.coffeeReady);
 }
