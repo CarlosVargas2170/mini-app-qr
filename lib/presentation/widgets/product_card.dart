@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/product.dart';
+import 'app_image.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Product product;
   final bool fill;
   const ProductCard({super.key, required this.product, this.fill = false});
 
   @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    final hasOffer = product.oldPrice != null;
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
+    final hasOffer = widget.product.oldPrice != null;
     final size = MediaQuery.of(context).size;
     final isWide = size.width > 700;
 
@@ -16,12 +28,11 @@ class ProductCard extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Container(color: const Color(0xFF0D0D1A)),
-        if (product.urlImage.isNotEmpty)
+        if (widget.product.urlImage.isNotEmpty)
           Positioned.fill(
-            child: Image.network(
-              product.urlImage,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const _Placeholder(),
+            child: AppImage(
+              imageUrl: widget.product.urlImage,
+              errorWidget: const _Placeholder(),
             ),
           )
         else
@@ -41,17 +52,17 @@ class ProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  product.name,
+                  widget.product.name,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: isWide ? 32 : 26,
                   ),
                 ),
-                if (product.description.isNotEmpty) ...[
+                if (widget.product.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
-                    product.description,
+                    widget.product.description,
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: isWide ? 16 : 14,
@@ -73,7 +84,7 @@ class ProductCard extends StatelessWidget {
                 const _Badge(label: 'Oferta', color: Color(0xFF6B7BF7)),
               if (hasOffer) const SizedBox(width: 6),
               _Badge(
-                label: '${product.price} Bs',
+                label: '${widget.product.price} Bs',
                 color: const Color(0xFFFF6B6B),
               ),
             ],
@@ -86,7 +97,7 @@ class ProductCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 20),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: fill
+        child: widget.fill
             ? stack
             : AspectRatio(
                 aspectRatio: isWide ? 16 / 10 : 4 / 5,

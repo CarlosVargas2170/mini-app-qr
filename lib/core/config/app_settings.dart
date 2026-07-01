@@ -17,6 +17,7 @@ class AppSettings {
   String bearerToken = '';
   int merchantId = 0;
   int productId = 0;
+  bool enableImageCache = true;
 
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
