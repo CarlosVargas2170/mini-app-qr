@@ -12,8 +12,7 @@ import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
-import '../widgets/order_summary.dart';
-import '../widgets/product_card.dart';
+import '../widgets/product_carousel.dart';
 import 'qr_payment_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -72,7 +71,6 @@ class _HomeViewState extends State<_HomeView> {
         await cubit.showProduct();
         break;
       case UiCommand.cancelPayment:
-        // Cancelar polling activo y volver al producto con timeout corto para attract
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showProductWithTimeout(const Duration(seconds: 5));
@@ -83,19 +81,17 @@ class _HomeViewState extends State<_HomeView> {
         await cubit.showIdle();
         break;
       case UiCommand.reloadProduct:
-        debugPrint('[HomePage] Recargando producto por cambio de config...');
+        debugPrint('[HomePage] Recargando productos por cambio de config...');
         await cubit.load();
         break;
     }
   }
 
-  /// Cancela el cubit de pago activo y libera la referencia.
   void _cancelActivePayment() {
     _activePaymentCubit?.cancel();
     _activePaymentCubit = null;
   }
 
-  /// Cierra la pantalla de pago si esta abierta en la pila de navegacion.
   void _popPaymentIfOpen() {
     if (mounted && Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
@@ -110,15 +106,10 @@ class _HomeViewState extends State<_HomeView> {
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: BlocConsumer<HomeCubit, HomeState>(
-            listener: (context, state) {
-              // Side-effects globales si son necesarios
-            },
+            listener: (context, state) {},
             builder: (context, state) {
               debugPrint(
                   '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
-              // El displayMode tiene prioridad:
-              // - attract (video) e idle funcionan SIEMPRE, sin importar si el producto cargo o no.
-              // - product solo se muestra si el producto realmente esta cargado.
               return switch (state.displayMode) {
                 DisplayMode.attract => const AttractGifPlayer(),
                 DisplayMode.idle => _buildIdle(),
@@ -166,7 +157,7 @@ class _HomeViewState extends State<_HomeView> {
 
   Widget _buildPortraitLayout(BuildContext context, HomeState state,
       {required bool isTall}) {
-    final product = state.product!;
+    final product = state.currentProduct!;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: ConstrainedBox(
@@ -182,13 +173,13 @@ class _HomeViewState extends State<_HomeView> {
               const SizedBox(height: 8),
               Expanded(
                 flex: isTall ? 3 : 2,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 40),
-                  child: ProductCard(product: product),
+                child: ProductCarousel(
+                  products: state.products,
+                  currentIndex: state.currentIndex,
                 ),
               ),
               const SizedBox(height: 16),
-              OrderSummary(product: product),
+              _buildProductInfo(product),
               const SizedBox(height: 12),
               _buildPayButton(context, state),
               const SizedBox(height: 24),
@@ -200,17 +191,18 @@ class _HomeViewState extends State<_HomeView> {
   }
 
   Widget _buildWideLayout(BuildContext context, HomeState state) {
-    final product = state.product!;
+    final product = state.currentProduct!;
     return Padding(
-      padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
+      padding:
+          const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: ProductCard(product: product, fill: true),
+            child: ProductCarousel(
+              products: state.products,
+              currentIndex: state.currentIndex,
             ),
           ),
           Expanded(
@@ -228,7 +220,8 @@ class _HomeViewState extends State<_HomeView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.coffee, color: AppColors.accent, size: 48),
+                    const Icon(Icons.coffee,
+                        color: AppColors.accent, size: 48),
                     const SizedBox(height: 16),
                     Text(
                       '¿Quieres un ${product.name}?',
@@ -262,6 +255,35 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
+  Widget _buildProductInfo(dynamic product) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Text(
+            product.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${product.price} Bs',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.warning,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoading() {
     return const Center(
       child: Column(
@@ -270,7 +292,7 @@ class _HomeViewState extends State<_HomeView> {
           CircularProgressIndicator(color: AppColors.accent, strokeWidth: 3),
           SizedBox(height: 24),
           Text(
-            'Cargando producto...',
+            'Cargando productos...',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
           ),
         ],
@@ -329,9 +351,8 @@ class _HomeViewState extends State<_HomeView> {
   }
 
   void _goToPayment(BuildContext context, HomeState state) {
-    final p = state.product!;
+    final p = state.currentProduct!;
 
-    // Disposear cubit anterior si existia (evita pollings huerfanos)
     _activePaymentCubit?.close();
 
     final cubit = sl.qrPaymentCubit();
@@ -370,7 +391,6 @@ class _HomeViewState extends State<_HomeView> {
               ],
             },
             onSuccess: () {
-              // Pago exitoso: cancelar cubit, cerrar pantalla, volver al GIF
               _activePaymentCubit?.cancel();
               _activePaymentCubit = null;
               if (mounted && Navigator.of(context).canPop()) {
@@ -385,7 +405,6 @@ class _HomeViewState extends State<_HomeView> {
       ),
     )
         .then((_) {
-      // Al volver, cancelar polling y liberar el cubit
       _activePaymentCubit?.cancel();
       _activePaymentCubit = null;
     });

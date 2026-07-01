@@ -66,7 +66,7 @@ class ServiceLocator {
 
   /// Factory: crea un nuevo HomeCubit cada vez que se invoca.
   HomeCubit homeCubit() => HomeCubit(
-        getProduct: getProductUseCase,
+        getProducts: getProductsUseCase,
         getMerchant: getMerchantInfoUseCase,
       );
 
