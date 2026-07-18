@@ -33,14 +33,18 @@ import 'ui_command_bus.dart';
 class AppServer {
   HttpServer? _server;
   final int port;
-
-  AppServer({this.port = 8080});
+  // AppServer({this.port = 8080});
+  AppServer({this.port = 5050});
 
   Future<void> start() async {
     try {
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+      final host = AppSettings().baseUrlVpn;
+      final addr = InternetAddress.tryParse(host) ?? InternetAddress.anyIPv4;
+      // _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+      _server = await HttpServer.bind(addr, AppSettings().portVpn);
+      final actualPort = AppSettings().portVpn;
       if (kDebugMode) {
-        debugPrint('[AppServer] Servidor iniciado en http://0.0.0.0:$port');
+        debugPrint('[AppServer] Servidor iniciado en http://$addr:$actualPort');
       }
 
       await for (final request in _server!) {
@@ -318,6 +322,8 @@ class AppServer {
         'bearerToken': settings.bearerToken,
         'merchantId': settings.merchantId,
         'productId': settings.productId,
+        'baseUrlVpn': settings.baseUrlVpn,
+        'portVpn': settings.portVpn,
       },
     });
   }
@@ -363,11 +369,24 @@ class AppServer {
         needsReload = true; // Producto puede recargarse en caliente
       }
 
+      if (json.containsKey('baseUrlVpn')) {
+        settings.baseUrlVpn = json['baseUrlVpn'] as String;
+        updated['baseUrlVpn'] = true;
+        needsRestart = true; // Cambiar URL del servidor requiere reinicio
+      }
+      if (json.containsKey('portVpn')) {
+        settings.portVpn = (json['portVpn'] as num).toInt();
+        updated['portVpn'] = true;
+        needsRestart = true; // Cambiar puerto del servidor requiere reinicio
+      }
+
       await ConfigStorage.write({
         'baseUrl': settings.baseUrl,
         'bearerToken': settings.bearerToken,
         'merchantId': settings.merchantId,
         'productId': settings.productId,
+        'baseUrlVpn': settings.baseUrlVpn,
+        'portVpn': settings.portVpn,
       });
 
       // Recargar producto en caliente si cambio merchantId o productId

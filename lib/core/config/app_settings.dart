@@ -18,6 +18,8 @@ class AppSettings {
   int merchantId = 0;
   int productId = 0;
   bool enableImageCache = true;
+  String baseUrlVpn = '';
+  int portVpn = 0;
 
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
@@ -34,6 +36,8 @@ class AppSettings {
         bearerToken = saved['bearerToken'] as String? ?? _defaults.bearerToken;
         merchantId = (saved['merchantId'] as num?)?.toInt() ?? _defaults.merchantId;
         productId = (saved['productId'] as num?)?.toInt() ?? _defaults.productId;
+        baseUrlVpn = saved['baseUrlVpn'] as String? ?? _defaults.baseUrlVpn;
+        portVpn = (saved['portVpn'] as num?)?.toInt() ?? _defaults.portVpn;
         if (kDebugMode) {
           debugPrint('[AppSettings] Configuracion cargada desde disco.');
         }
@@ -55,6 +59,9 @@ class AppSettings {
     bearerToken = _defaults.bearerToken;
     merchantId = _defaults.merchantId;
     productId = _defaults.productId;
+    baseUrlVpn = _defaults.baseUrlVpn;
+    portVpn = _defaults.portVpn;
+    enableImageCache = true;
     if (kDebugMode) {
       debugPrint('[AppSettings] Usando configuracion por defecto (fallback).');
     }
@@ -72,4 +79,6 @@ abstract final class _defaults {
   // static const int merchantId = 53;
   static const int merchantId = 53;
   static const int productId = 457969;
+  static const String baseUrlVpn = "10.13.13.17";
+  static const int portVpn = 5050;
 }
