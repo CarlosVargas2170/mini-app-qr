@@ -39,13 +39,18 @@ class AppServer {
   Future<void> start() async {
     try {
       final host = AppSettings().baseUrlVpn;
+      debugPrint('[AppServer] Iniciando servidor en $host:$port ...');
       final addr = InternetAddress.tryParse(host) ?? InternetAddress.anyIPv4;
+      debugPrint('[AppServer] Resolviendo direccion: $addr');
       // _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
       _server = await HttpServer.bind(addr, AppSettings().portVpn);
+      debugPrint('[AppServer] Servidor iniciado en $_server');
       final actualPort = AppSettings().portVpn;
-      if (kDebugMode) {
-        debugPrint('[AppServer] Servidor iniciado en http://$addr:$actualPort');
-      }
+      debugPrint('[AppServer] Servidor iniciado en http://$addr:$actualPort');
+
+      // if (kDebugMode) {
+      //   debugPrint('[AppServer] Servidor iniciado en http://$addr:$actualPort');
+      // }
 
       await for (final request in _server!) {
         _handleRequest(request);
@@ -123,13 +128,14 @@ class AppServer {
     }
 
     if (path == '/play-question' && method == 'POST') {
+      UiCommandBus.emit(UiCommand.showProductResetCarousel);
       final played = await AudioService.playQuestion();
       _sendJson(response, 200, {
         'success': true,
         'played': played,
         'message': played
-            ? 'Reproduciendo audio de pregunta'
-            : 'Cooldown activo, audio omitido',
+            ? 'Reproduciendo audio de pregunta + mostrando producto'
+            : 'Mostrando producto (audio omitido por cooldown)',
       });
       return;
     }
@@ -218,7 +224,7 @@ class AppServer {
     }
 
     if (path == '/greet' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showProduct);
+      UiCommandBus.emit(UiCommand.showProductResetCarousel);
       final played = await AudioService.playQuestion();
       _sendJson(response, 200, {
         'success': true,
@@ -255,6 +261,16 @@ class AppServer {
       UiCommandBus.emit(UiCommand.showIdle);
       _sendJson(response, 200,
           {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
+      return;
+    }
+
+    if (path == '/carrusel/product' && method == 'POST') {
+      UiCommandBus.emit(UiCommand.showAttract);
+      _sendJson(response, 200, {
+        'success': true,
+        'mode': 'attract',
+        'message': 'Mostrando video de atraccion'
+      });
       return;
     }
 

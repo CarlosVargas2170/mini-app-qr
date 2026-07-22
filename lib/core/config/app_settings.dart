@@ -79,6 +79,7 @@ abstract final class _defaults {
   // static const int merchantId = 53;
   static const int merchantId = 53;
   static const int productId = 457969;
-  static const String baseUrlVpn = "10.13.13.17";
+  // static const String baseUrlVpn = "10.13.13.17";
+  static const String baseUrlVpn = "192.168.21.71";
   static const int portVpn = 5050;
 }

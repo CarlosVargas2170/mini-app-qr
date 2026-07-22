@@ -19,6 +19,9 @@ enum UiCommand {
 
   /// Cancelar pago activo y volver al producto con timeout corto para attract.
   cancelPayment,
+
+  /// Mostrar producto, reproducir saludo y resetear carrusel al primer elemento.
+  showProductResetCarousel,
 }
 
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.
