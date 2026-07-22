@@ -5,7 +5,7 @@ import '../../domain/entities/product.dart';
 import '../bloc/home_cubit.dart';
 import 'product_card.dart';
 
-class ProductCarousel extends StatelessWidget {
+class ProductCarousel extends StatefulWidget {
   final List<Product> products;
   final int currentIndex;
 
@@ -16,6 +16,44 @@ class ProductCarousel extends StatelessWidget {
   });
 
   @override
+  State<ProductCarousel> createState() => _ProductCarouselState();
+}
+
+class _ProductCarouselState extends State<ProductCarousel> {
+  final CarouselSliderController _carouselController =
+      CarouselSliderController();
+
+  /// Indice real del carrusel, actualizado solo en [onPageChanged].
+  int _realIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _realIndex = widget.currentIndex;
+  }
+
+  @override
+  void didUpdateWidget(ProductCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Solo anima si el indice cambio desde fuera (no por swipe del usuario)
+    if (widget.currentIndex != oldWidget.currentIndex &&
+        widget.currentIndex != _realIndex) {
+      _realIndex = widget.currentIndex;
+      // Usar addPostFrameCallback para asegurar que el PageController
+      // interno del carrusel ya tiene clientes antes de animar.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _carouselController.animateToPage(
+            widget.currentIndex,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isWide = size.width > 700;
@@ -24,26 +62,28 @@ class ProductCarousel extends StatelessWidget {
       children: [
         Expanded(
           child: CarouselSlider.builder(
-            itemCount: products.length,
+            carouselController: _carouselController,
+            itemCount: widget.products.length,
             itemBuilder: (context, index, realIndex) {
-              return ProductCard(product: products[index], fill: true);
+              return ProductCard(product: widget.products[index], fill: true);
             },
             options: CarouselOptions(
               height: double.infinity,
               viewportFraction: isWide ? 0.90 : 1.05,
-              initialPage: currentIndex,
-              enableInfiniteScroll: products.length > 1,
+              initialPage: widget.currentIndex,
+              enableInfiniteScroll: widget.products.length > 1,
               enlargeCenterPage: true,
               enlargeFactor: 0.2,
               onPageChanged: (index, reason) {
+                _realIndex = index;
                 context.read<HomeCubit>().updateCurrentIndex(index);
               },
             ),
           ),
         ),
-        if (products.length > 1) ...[
+        if (widget.products.length > 1) ...[
           const SizedBox(height: 12),
-          _buildIndicators(products.length, currentIndex),
+          _buildIndicators(widget.products.length, widget.currentIndex),
           const SizedBox(height: 8),
         ],
       ],

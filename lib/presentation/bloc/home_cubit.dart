@@ -143,8 +143,7 @@ class HomeCubit extends Cubit<HomeState> {
         debugPrint('[HomeCubit] Recarga OK -> displayMode=product');
         _startInactivityTimer(timeout);
       } else {
-        debugPrint(
-            '[HomeCubit] Recarga fallo, no se puede mostrar productos');
+        debugPrint('[HomeCubit] Recarga fallo, no se puede mostrar productos');
       }
       return;
     }
@@ -166,6 +165,47 @@ class HomeCubit extends Cubit<HomeState> {
           '[HomeCubit] showIdle() -> status=error, recargando en background...');
       await load();
     }
+  }
+
+  /// Muestra el carrusel de productos y resetea el indice al primer elemento.
+  /// Ideal para cuando se reproduce el audio "Quieres un cafe?".
+  Future<void> showProductResetCarousel() async {
+    final timeout = _inactivityTimeout;
+    debugPrint(
+        '[HomeCubit] showProductResetCarousel(${timeout.inSeconds}s) llamado');
+    _cancelInactivityTimer();
+
+    if (state.status == HomeStatus.loaded) {
+      emit(state.copyWith(
+        displayMode: DisplayMode.product,
+        currentIndex: 0,
+      ));
+      debugPrint(
+          '[HomeCubit] Estado emitido: displayMode=product + currentIndex=0');
+      _startInactivityTimer(timeout);
+      return;
+    }
+
+    if (state.status == HomeStatus.error) {
+      debugPrint(
+          '[HomeCubit] showProductResetCarousel() -> status=error, recargando...');
+      await load();
+      if (state.status == HomeStatus.loaded) {
+        emit(state.copyWith(
+          displayMode: DisplayMode.product,
+          currentIndex: 0,
+        ));
+        debugPrint(
+            '[HomeCubit] Recarga OK -> displayMode=product + currentIndex=0');
+        _startInactivityTimer(timeout);
+      } else {
+        debugPrint('[HomeCubit] Recarga fallo, no se puede mostrar productos');
+      }
+      return;
+    }
+
+    debugPrint(
+        '[HomeCubit] showProductResetCarousel() ignorado: status=${state.status}');
   }
 
   void _startInactivityTimer([Duration? timeout]) {

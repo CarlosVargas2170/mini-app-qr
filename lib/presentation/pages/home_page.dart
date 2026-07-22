@@ -84,6 +84,11 @@ class _HomeViewState extends State<_HomeView> {
         debugPrint('[HomePage] Recargando productos por cambio de config...');
         await cubit.load();
         break;
+      case UiCommand.showProductResetCarousel:
+        _cancelActivePayment();
+        _popPaymentIfOpen();
+        await cubit.showProductResetCarousel();
+        break;
     }
   }
 
@@ -115,7 +120,8 @@ class _HomeViewState extends State<_HomeView> {
                 DisplayMode.idle => _buildIdle(),
                 DisplayMode.product => switch (state.status) {
                     HomeStatus.initial || HomeStatus.loading => _buildLoading(),
-                    HomeStatus.error => _buildError(state.errorMessage, context),
+                    HomeStatus.error =>
+                      _buildError(state.errorMessage, context),
                     HomeStatus.loaded => _buildContent(context, state),
                   },
               };
@@ -193,8 +199,7 @@ class _HomeViewState extends State<_HomeView> {
   Widget _buildWideLayout(BuildContext context, HomeState state) {
     final product = state.currentProduct!;
     return Padding(
-      padding:
-          const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
+      padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -220,8 +225,7 @@ class _HomeViewState extends State<_HomeView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.coffee,
-                        color: AppColors.accent, size: 48),
+                    const Icon(Icons.coffee, color: AppColors.accent, size: 48),
                     const SizedBox(height: 16),
                     Text(
                       '¿Quieres un ${product.name}?',
