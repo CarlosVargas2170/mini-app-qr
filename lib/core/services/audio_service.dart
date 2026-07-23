@@ -10,25 +10,45 @@ import 'audio_notification_service.dart';
 /// agradece automaticamente al completar el pago.
 class AudioService {
   static DateTime? _lastPlayed;
-  static AudioPlayer? _currentPlayer;
+  
+  // 🔥 UN SOLO PLAYER para toda la app (no se destruye)
+  static final AudioPlayer _player = AudioPlayer();
+  static bool _isInitialized = false;
+  
+  // Flag para identificar llamadas remotas (desde endpoint)
+  static bool _isRemoteCall = false;
 
   /// Cooldown configurable entre reproducciones (por defecto 5 segundos).
   static Duration cooldown = const Duration(seconds: 5);
 
+  /// 🔥 Inicializar el player (sin setPlayerProperties porque no existe)
+  static void _init() {
+    if (!_isInitialized) {
+      // Nota: No hay setPlayerProperties en audioplayers
+      // PulseAudio detecta automáticamente el nombre del binario
+      _isInitialized = true;
+      debugPrint('[AudioService] ✅ Player inicializado (stream permanente)');
+    }
+  }
+
+  /// Marcar una reproducción como "remota" (desde endpoint)
+  static void setRemoteCall(bool isRemote) {
+    _isRemoteCall = isRemote;
+    if (isRemote) {
+      debugPrint('[AudioService] 📡 Modo remoto activado');
+    }
+  }
+
   /// Reproduce un asset de audio.
-  ///
-  /// - [assetPath]: ruta relativa dentro de `assets/`. Ej: `audio/saludo.wav`.
-  /// - [force]: si es `true`, ignora el cooldown.
-  /// - [volume]: volumen entre 0.0 y 1.0 (por defecto 1.0).
-  /// - [displayText]: texto a mostrar en el overlay (opcional).
-  ///
-  /// Retorna `true` si se reprodujo, `false` si se bloqueo por cooldown.
   static Future<bool> play(
     String assetPath, {
     bool force = false,
     double volume = 1.0,
     String? displayText,
   }) async {
+    // Asegurar que el player esté inicializado
+    _init();
+
     final now = DateTime.now();
 
     // Cooldown anti-spam
@@ -42,44 +62,50 @@ class AudioService {
     }
     _lastPlayed = now;
 
-    // Detener reproduccion anterior si existe
-    await stop();
-
-    final player = AudioPlayer();
-    _currentPlayer = player;
+    // Si es llamada remota, forzar volumen al 100%
+    if (_isRemoteCall) {
+      volume = 1.0; // 100%
+      debugPrint('[AudioService] 📢 Reproducción remota: Volumen forzado al 100%');
+      _isRemoteCall = false; // Resetear flag después de usar
+    }
 
     try {
       debugPrint('[AudioService] Reproduciendo: $assetPath (volume=$volume)');
       AudioNotificationService.notifyPlaying(assetPath, displayText: displayText);
-      await player.setVolume(volume);
-      await player.play(AssetSource(assetPath));
-      await player.onPlayerComplete.first;
-      debugPrint('[AudioService] Finalizado: $assetPath');
+      
+      // Usar el MISMO player, no crear uno nuevo
+      await _player.setVolume(volume);
+      await _player.play(AssetSource(assetPath));
+      await _player.onPlayerComplete.first;
+      
+      debugPrint('[AudioService] ✅ Finalizado: $assetPath');
       AudioNotificationService.notifyStopped();
       return true;
     } catch (e, stack) {
-      debugPrint('[AudioService] ERROR reproduciendo "$assetPath": $e');
+      debugPrint('[AudioService] ❌ ERROR reproduciendo "$assetPath": $e');
       debugPrint('[AudioService] StackTrace: $stack');
       AudioNotificationService.notifyStopped();
       return false;
-    } finally {
-      await player.dispose();
-      if (_currentPlayer == player) {
-        _currentPlayer = null;
-      }
     }
   }
 
   /// Detiene cualquier audio que este sonando actualmente.
   static Future<void> stop() async {
-    if (_currentPlayer != null) {
-      debugPrint('[AudioService] Deteniendo reproduccion activa');
-      await _currentPlayer!.stop();
-      await _currentPlayer!.dispose();
-      _currentPlayer = null;
-      AudioNotificationService.notifyStopped();
-    }
+    debugPrint('[AudioService] Deteniendo reproduccion activa');
+    await _player.stop();
+    AudioNotificationService.notifyStopped();
   }
+
+  /// Limpiar recursos SOLO cuando la app cierra
+  static void dispose() {
+    _player.dispose();
+    _isInitialized = false;
+    debugPrint('[AudioService] 🧹 Recursos liberados');
+  }
+
+  // ============================================================
+  // Métodos públicos para reproducir audios específicos
+  // ============================================================
 
   /// Reproduce el saludo 'deseas un cafe?'.
   static Future<bool> playQuestion({bool force = false, String? displayText}) async =>
@@ -90,13 +116,12 @@ class AudioService {
       play('audio/thanks_shopping.wav', force: force, displayText: displayText ?? AudioMessages.thanks);
 
   /// Reproduce el audio de invitacion a comprar.
-  /// Cambia el asset si tu archivo tiene otro nombre.
   static Future<bool> playBuy({bool force = false, String? displayText}) async =>
       play('audio/purchase_buy.wav', force: force, displayText: displayText ?? AudioMessages.buy);
 
   /// Reproduce el audio de notificacion de orden recibida.
   static Future<bool> playThereIsAnOrder({bool force = false, String? displayText}) async =>
-      play('audio/there _is_an_order.wav', force: force, displayText: displayText ?? AudioMessages.orderReceived);
+      play('audio/there_is_an_order.wav', force: force, displayText: displayText ?? AudioMessages.orderReceived);
 
   static Future<bool> playAttentionExcuseMe({bool force = false, String? displayText}) async =>
       play('audio/attention_excuse_me.wav', force: force, displayText: displayText ?? AudioMessages.attention);
