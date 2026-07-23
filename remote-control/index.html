@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0d1117">
   <title>Control Mesero Robot</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=9">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -27,11 +27,18 @@
       <div class="url-bar">
         <div class="url-input-wrap">
           <span class="url-icon">🔌</span>
-          <input type="text" id="baseUrl" placeholder="http://IP_DEL_ROBOT:8080" value="">
+          <input type="text" id="baseUrl" placeholder="http://IP_DEL_ROBOT:8080" value="http://192.168.21.71:5050">
         </div>
         <button class="btn-connect" onclick="testConnection()">Conectar</button>
       </div>
     </header>
+
+    <!-- ═══ BADGE DE AUDIO ACTIVO ═══ -->
+    <div class="audio-live-badge" id="audioLiveBadge" style="display:none">
+      <span class="audio-live-dot"></span>
+      <span class="audio-live-icon">🔊</span>
+      <span class="audio-live-text" id="audioLiveText"></span>
+    </div>
 
     <!-- ═══ SPLIT LAYOUT: CONTROLES + CONSOLA ═══ -->
     <main class="split-layout">
@@ -65,7 +72,7 @@
             <span class="block-title">Pantalla</span>
           </div>
           <div class="action-grid">
-            <button class="action-card accent" onclick="callEndpoint('POST','/greet')">
+            <button class="action-card accent" data-audio="/greet">
               <span class="action-card-icon">🗣️</span>
               <span class="action-card-label">Saludar</span>
               <span class="action-card-sub">Producto + audio</span>
@@ -90,35 +97,35 @@
             <span class="block-title">Audios</span>
           </div>
           <div class="action-grid cols-3">
-            <button class="action-card" onclick="callEndpoint('POST','/play-question')">
+            <button class="action-card" data-audio="/play-question">
               <span class="action-card-icon">❓</span>
-              <span class="action-card-label">Pregunta</span>
+              <span class="action-card-label">¿Hola, deseas un café?</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-thanks')">
+            <button class="action-card" data-audio="/play-thanks">
               <span class="action-card-icon">🙏</span>
-              <span class="action-card-label">Gracias</span>
+              <span class="action-card-label">Gracias por tu compra, enseguida te lo traigo</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-buy')">
+            <button class="action-card" data-audio="/play-buy">
               <span class="action-card-icon">🛒</span>
-              <span class="action-card-label">Comprar</span>
+              <span class="action-card-label">Si compras un café, te lo traigo enseguida</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-order')">
+            <button class="action-card" data-audio="/play-order">
               <span class="action-card-icon">🔔</span>
-              <span class="action-card-label">Orden</span>
+              <span class="action-card-label">Tengo un pedido, ¿Lo puedes revisar?, son los que dicen Robot Mesero</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-attention')">
+            <button class="action-card" data-audio="/play-attention">
               <span class="action-card-icon">⚠️</span>
-              <span class="action-card-label">Atención</span>
+              <span class="action-card-label">Atención, con permiso con favor</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-collect-tray')">
+            <button class="action-card" data-audio="/play-collect-tray">
               <span class="action-card-icon">🍽️</span>
-              <span class="action-card-label">Bandeja</span>
+              <span class="action-card-label">¿Hola, puedo recoger tu bandeja?</span>
             </button>
-            <button class="action-card" onclick="callEndpoint('POST','/play-coffee')">
+            <button class="action-card" data-audio="/play-coffee">
               <span class="action-card-icon">☕</span>
-              <span class="action-card-label">Café</span>
+              <span class="action-card-label">¡Aquí tienes tu café, que lo disfrutes!</span>
             </button>
-            <button class="action-card danger" onclick="callEndpoint('POST','/audio/stop')">
+            <button class="action-card danger" onclick="stopLocal(); callEndpoint('POST','/audio/stop')">
               <span class="action-card-icon">🔇</span>
               <span class="action-card-label">Detener</span>
             </button>
@@ -175,6 +182,6 @@
     <footer class="footer">Control Remoto · Mesero Robot</footer>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
