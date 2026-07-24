@@ -180,7 +180,7 @@ class _AudioOverlayWidgetState extends State<AudioOverlayWidget>
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.background,
-                      fontSize: 28,
+                      fontSize: 57,
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.none,
                     ),

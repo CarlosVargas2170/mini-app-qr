@@ -114,8 +114,10 @@ class AppServer {
         return;
       }
 
-      final played =
-          await AudioService.play(asset, volume: volume, force: force);
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
+      final played = await AudioService.play(asset, volume: volume, force: force);
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -129,7 +131,11 @@ class AppServer {
 
     if (path == '/play-question' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
+      
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -141,7 +147,10 @@ class AppServer {
     }
 
     if (path == '/play-thanks' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playThanks();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -153,7 +162,10 @@ class AppServer {
     }
 
     if (path == '/play-buy' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playBuy();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -165,7 +177,10 @@ class AppServer {
     }
 
     if (path == '/play-order' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playThereIsAnOrder();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -177,7 +192,10 @@ class AppServer {
     }
 
     if (path == '/play-attention' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playAttentionExcuseMe();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -189,7 +207,10 @@ class AppServer {
     }
 
     if (path == '/play-collect-tray' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playCollectTray();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -201,7 +222,10 @@ class AppServer {
     }
 
     if (path == '/play-coffee' && method == 'POST') {
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playHereIsCoffee();
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -225,7 +249,11 @@ class AppServer {
 
     if (path == '/greet' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
+      
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
+      
       _sendJson(response, 200, {
         'success': true,
         'mode': 'product',
@@ -311,8 +339,10 @@ class AppServer {
       final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
       final force = json['force'] == true;
 
-      final played =
-          await AudioService.play(asset, volume: volume, force: force);
+      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
+      AudioService.setRemoteCall(true);
+      final played = await AudioService.play(asset, volume: volume, force: force);
+      
       _sendJson(response, 200, {
         'success': true,
         'played': played,
