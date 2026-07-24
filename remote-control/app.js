@@ -27,6 +27,11 @@ const AUDIO_LABELS = {
   'attention_excuse_me.wav': 'Atención, disculpe',
   'collect_tray.wav':        'Cobrar bandeja',
   'here_is_coffee.wav':      '¡Aquí está tu café!',
+  // Kíky audios
+  'Aqui_tienes_Que_lo_d.wav':    'Aquí tienes. ¡Que lo disfrutes!',
+  'Hola_deseas_un_Brown.wav':    'Hola, ¿deseas un Brownie de Kíky?',
+  'Hola_deseas_un_Cremo.wav':    'Hola, ¿deseas un Cremoso 3 Leches?',
+  'Muchas_graacias.wav':         'Muchas gracias',
 };
 
 // ── Helpers ──
@@ -212,6 +217,26 @@ function bindAudioButtons() {
 }
 
 // ── Audio custom ──
+
+/** Reproduce un audio con un solo click: local + robot en paralelo.
+ *  @param {string} assetPath - Ruta del asset en el robot (ej: 'audio/kiky/...')
+ *  @param {string} localPath - Ruta del archivo local (ej: 'audio/kiky/...')
+ */
+async function quickPlay(assetPath, localPath) {
+  // Reproducir localmente
+  playLocal(localPath);
+
+  // Enviar al robot
+  const result = await callEndpoint('POST', '/audio/play', {
+    asset: assetPath,
+    volume: 1.0,
+    force: false,
+  });
+
+  if (!result.ok) {
+    log('⚠️ Robot no reprodujo. Sonando solo local.', 'warn');
+  }
+}
 
 async function playCustomAudio() {
   const asset = document.getElementById('customAsset').value.trim();
