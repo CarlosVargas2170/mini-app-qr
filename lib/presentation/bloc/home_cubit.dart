@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
+import '../../core/services/product_cache.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/get_products.dart';
@@ -32,15 +33,28 @@ class HomeCubit extends Cubit<HomeState> {
 
     try {
       final result = await _loadWithRetry();
+
+      // Aplicar filtro de visibilidad antes de emitir el estado
+      final settings = AppSettings();
+      final filter = settings.filterConfig;
+      final filteredProducts = result.products
+          .where((p) => filter.isProductVisible(p.id, p.merchantId))
+          .toList();
+
+      debugPrint(
+          '[HomeCubit] Filtro aplicado: ${result.products.length} total -> ${filteredProducts.length} visibles (modo: ${filter.filterMode})');
+
       emit(state.copyWith(
         status: HomeStatus.loaded,
         displayMode: DisplayMode.attract,
-        products: result.products,
+        products: filteredProducts,
         currentIndex: 0,
         merchantName: result.merchantName,
+        merchantNames: result.merchantNames,
+        merchantIds: result.merchantIds,
       ));
       debugPrint(
-          '[HomeCubit] Estado emitido: loaded + attract (${result.products.length} productos)');
+          '[HomeCubit] Estado emitido: loaded + attract (${filteredProducts.length} productos de ${result.merchantIds.length} merchants)');
     } catch (e, stack) {
       debugPrint('[HomeCubit] load FAILED (incluyendo retry): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
@@ -51,8 +65,13 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  Future<({List<Product> products, String merchantName})>
-      _loadWithRetry() async {
+  Future<
+      ({
+        List<Product> products,
+        String merchantName,
+        List<String> merchantNames,
+        List<int> merchantIds
+      })> _loadWithRetry() async {
     const maxRetries = 1;
     const retryDelay = Duration(seconds: 2);
 
@@ -65,20 +84,69 @@ class HomeCubit extends Cubit<HomeState> {
 
       try {
         final settings = AppSettings();
+        final merchantsToLoad = settings.merchantIds;
         debugPrint(
-            '[HomeCubit] merchantId=${settings.merchantId} (intento ${attempt + 1})');
+            '[HomeCubit] merchantIds=$merchantsToLoad (intento ${attempt + 1})');
 
-        debugPrint('[HomeCubit] Llamando GetProductsUseCase...');
-        final products = await _getProducts(settings.merchantId);
+        if (merchantsToLoad.isEmpty) {
+          throw Exception('No hay merchants configurados');
+        }
+
+        // Cargar todos los merchants en paralelo
         debugPrint(
-            '[HomeCubit] Productos obtenidos OK: ${products.length} items');
+            '[HomeCubit] Cargando ${merchantsToLoad.length} merchants en paralelo...');
+        final results = await Future.wait(
+          merchantsToLoad.map((merchantId) => _loadSingleMerchant(merchantId)),
+        );
 
-        debugPrint('[HomeCubit] Llamando GetMerchantInfoUseCase...');
-        final merchant = await _getMerchant(settings.merchantId);
+        // Combinar resultados de todos los merchants
+        final allProducts = <Product>[];
+        final merchantNames = <String>[];
+        final loadedMerchantIds = <int>[];
+        final errors = <String>[];
+
+        for (var i = 0; i < results.length; i++) {
+          final merchantId = merchantsToLoad[i];
+          final result = results[i];
+
+          if (result != null) {
+            allProducts.addAll(result.products);
+            merchantNames.add(result.merchantName);
+            loadedMerchantIds.add(merchantId);
+            debugPrint(
+                '[HomeCubit] Merchant $merchantId: ${result.products.length} productos cargados');
+          } else {
+            errors.add('Merchant $merchantId: fallo al cargar');
+          }
+        }
+
+        if (allProducts.isEmpty) {
+          throw Exception(
+              'No se pudieron cargar productos de ningun merchant.\n${errors.join('\n')}');
+        }
+
+        if (errors.isNotEmpty) {
+          debugPrint(
+              '[HomeCubit] ⚠️ ${errors.length} merchants fallaron, pero se cargaron ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
+        }
+
+        // merchantName principal: combina los nombres de todos los merchants
+        final primaryName = merchantNames.join(' | ');
+
+        // Poblar cache global para que AppServer pueda leer los productos
+        final cache = ProductCache();
+        cache.allProducts = List.unmodifiable(allProducts);
+        cache.merchantNames = List.unmodifiable(merchantNames);
+        cache.loadedMerchantIds = List.unmodifiable(loadedMerchantIds);
         debugPrint(
-            '[HomeCubit] Merchant obtenido OK: nombre="${merchant.name}"');
+            '[HomeCubit] ProductCache actualizado: ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
 
-        return (products: products, merchantName: merchant.name);
+        return (
+          products: allProducts,
+          merchantName: primaryName,
+          merchantNames: merchantNames,
+          merchantIds: loadedMerchantIds,
+        );
       } catch (e) {
         if (attempt < maxRetries) {
           debugPrint('[HomeCubit] Intento ${attempt + 1} fallo: $e');
@@ -89,6 +157,23 @@ class HomeCubit extends Cubit<HomeState> {
     }
 
     throw Exception('Agotados todos los intentos de carga');
+  }
+
+  /// Carga los productos e info de un solo merchant.
+  /// Retorna null si falla (para manejo graceful de errores).
+  Future<({List<Product> products, String merchantName})?> _loadSingleMerchant(
+      int merchantId) async {
+    try {
+      debugPrint('[HomeCubit] Cargando merchant $merchantId...');
+      final products = await _getProducts(merchantId);
+      final merchant = await _getMerchant(merchantId);
+      debugPrint(
+          '[HomeCubit] Merchant $merchantId OK: ${products.length} productos, nombre="${merchant.name}"');
+      return (products: products, merchantName: merchant.name);
+    } catch (e) {
+      debugPrint('[HomeCubit] Error cargando merchant $merchantId: $e');
+      return null; // Falla gracefully: un merchant caido no detiene a los demas
+    }
   }
 
   /// Actualiza el indice del producto seleccionado en el carrusel.

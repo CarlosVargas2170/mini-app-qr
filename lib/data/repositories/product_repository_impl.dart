@@ -11,13 +11,13 @@ class ProductRepositoryImpl implements ProductRepository {
   @override
   Future<domain.Product> getProduct(int merchantId, int productId) async {
     final dto = await _remote.getProduct(merchantId, productId);
-    return _mapToDomain(dto);
+    return _mapToDomain(dto, merchantId);
   }
 
   @override
   Future<List<domain.Product>> getProducts(int merchantId) async {
     final dtos = await _remote.getProducts(merchantId);
-    return dtos.map(_mapToDomain).toList();
+    return dtos.map((dto) => _mapToDomain(dto, merchantId)).toList();
   }
 
   @override
@@ -30,9 +30,10 @@ class ProductRepositoryImpl implements ProductRepository {
     );
   }
 
-  domain.Product _mapToDomain(Product dto) {
+  domain.Product _mapToDomain(Product dto, int merchantId) {
     return domain.Product(
       id: dto.id,
+      merchantId: merchantId,
       name: dto.name,
       description: dto.description,
       price: dto.price,

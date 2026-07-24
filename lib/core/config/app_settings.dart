@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'config_storage.dart';
+import 'product_filter_config.dart';
 
 /// Configuracion de la app cargada en runtime.
 ///
@@ -15,16 +16,23 @@ class AppSettings {
 
   String baseUrl = '';
   String bearerToken = '';
-  int merchantId = 0;
+  List<int> merchantIds = [];
   int productId = 0;
   bool enableImageCache = true;
   String baseUrlVpn = '';
   int portVpn = 0;
 
+  /// Configuracion de visibilidad de merchants y productos.
+  ProductFilterConfig filterConfig = ProductFilterConfig();
+
+  /// Compatibilidad temporal: retorna el primer merchantId de la lista.
+  /// @deprecated Usar merchantIds directamente cuando sea posible.
+  int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
+
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
       bearerToken.isNotEmpty &&
-      merchantId != 0 &&
+      merchantIds.isNotEmpty &&
       productId != 0;
 
   /// Carga la configuracion desde el disco o aplica fallback.
@@ -34,12 +42,33 @@ class AppSettings {
       if (saved != null) {
         baseUrl = saved['baseUrl'] as String? ?? _defaults.baseUrl;
         bearerToken = saved['bearerToken'] as String? ?? _defaults.bearerToken;
-        merchantId = (saved['merchantId'] as num?)?.toInt() ?? _defaults.merchantId;
-        productId = (saved['productId'] as num?)?.toInt() ?? _defaults.productId;
+
+        // Cargar merchantIds (soporta tanto lista como valor único por compatibilidad)
+        final savedMerchantIds = saved['merchantIds'];
+        if (savedMerchantIds is List) {
+          merchantIds =
+              savedMerchantIds.map((e) => (e as num).toInt()).toList();
+        } else if (savedMerchantIds is num) {
+          // Compatibilidad con configuración antigua (un solo merchantId)
+          merchantIds = [savedMerchantIds.toInt()];
+        } else {
+          merchantIds = _defaults.merchantIds;
+        }
+
+        productId =
+            (saved['productId'] as num?)?.toInt() ?? _defaults.productId;
         baseUrlVpn = saved['baseUrlVpn'] as String? ?? _defaults.baseUrlVpn;
         portVpn = (saved['portVpn'] as num?)?.toInt() ?? _defaults.portVpn;
+
+        // Cargar filtro de productos si existe
+        if (saved['filterConfig'] is Map) {
+          filterConfig = ProductFilterConfig.fromJson(
+              saved['filterConfig'] as Map<String, dynamic>);
+        }
+
         if (kDebugMode) {
-          debugPrint('[AppSettings] Configuracion cargada desde disco.');
+          debugPrint(
+              '[AppSettings] Configuracion cargada desde disco. Merchants: $merchantIds, filterMode: ${filterConfig.filterMode}');
         }
         return;
       }
@@ -57,13 +86,15 @@ class AppSettings {
   void applyFallback() {
     baseUrl = _defaults.baseUrl;
     bearerToken = _defaults.bearerToken;
-    merchantId = _defaults.merchantId;
+    merchantIds = _defaults.merchantIds;
     productId = _defaults.productId;
     baseUrlVpn = _defaults.baseUrlVpn;
     portVpn = _defaults.portVpn;
     enableImageCache = true;
+    filterConfig = ProductFilterConfig(); // Resetear filtros
     if (kDebugMode) {
-      debugPrint('[AppSettings] Usando configuracion por defecto (fallback).');
+      debugPrint(
+          '[AppSettings] Usando configuracion por defecto (fallback). Merchants: $merchantIds');
     }
   }
 }
@@ -76,8 +107,8 @@ abstract final class _defaults {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MjQxMDQ5MCwiZXhwIjoxODEzOTQ2NDkwfQ.M9fdig91KYqiGBTrrFMYfYjsRf5ZhmvICxT_q1yeDLs';
   // static const String bearerToken =
   //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
-  // static const int merchantId = 53;
-  static const int merchantId = 53;
+  // static const List<int> merchantIds = [53];
+  static const List<int> merchantIds = [53];
   static const int productId = 457969;
   // static const String baseUrlVpn = "10.13.13.17";
   // static const String baseUrlVpn = "192.168.21.71";

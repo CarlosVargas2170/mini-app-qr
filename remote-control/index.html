@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0d1117">
   <title>Control Mesero Robot</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -152,14 +152,45 @@
             <span class="block-title">Configuración</span>
           </div>
           <div class="config-card">
-            <button class="btn-outline" onclick="callEndpoint('GET','/config')">📋 Ver config actual</button>
+            <button class="btn-outline" onclick="callEndpoint('GET','/config')"> Ver config actual</button>
             <input type="text" id="cfgBaseUrl" placeholder="Base URL del API">
             <input type="text" id="cfgToken" placeholder="Bearer Token">
             <div class="config-row">
-              <input type="number" id="cfgMerchantId" placeholder="Merchant ID">
+              <input type="text" id="cfgMerchantIds" placeholder="Merchant IDs (ej: 1,53,55)">
               <input type="number" id="cfgProductId" placeholder="Product ID">
             </div>
-            <button class="btn-accent" onclick="updateConfig()">💾 Guardar configuración</button>
+            <button class="btn-accent" onclick="updateConfig()"> Guardar configuracion</button>
+          </div>
+        </section>
+
+        <!-- ─── Merchants ─── -->
+        <section class="block">
+          <div class="block-header">
+            <span class="block-icon">🏪</span>
+            <span class="block-title">Merchants</span>
+            <button class="btn-sm accent" onclick="reloadProducts()" style="margin-left:auto">🔄 Recargar</button>
+          </div>
+          <div class="config-card" id="merchantList">
+            <p class="hint-text">Pulsa Conectar para cargar merchants</p>
+          </div>
+        </section>
+
+        <!-- ─── Productos ─── -->
+        <section class="block">
+          <div class="block-header">
+            <span class="block-icon"></span>
+            <span class="block-title">Productos</span>
+            <span class="filter-mode-badge" id="filterModeBadge">ALL</span>
+          </div>
+          <div class="config-card">
+            <div class="filter-mode-row">
+              <button class="btn-sm mode-btn active" data-mode="all" onclick="setFilterMode('all')">Mostrar todo</button>
+              <button class="btn-sm mode-btn" data-mode="blacklist" onclick="setFilterMode('blacklist')">Blacklist</button>
+              <button class="btn-sm mode-btn" data-mode="whitelist" onclick="setFilterMode('whitelist')">Whitelist</button>
+            </div>
+            <div id="productList">
+              <p class="hint-text">Carga productos primero</p>
+            </div>
           </div>
         </section>
 
@@ -182,6 +213,6 @@
     <footer class="footer">Control Remoto · Mesero Robot</footer>
   </div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
