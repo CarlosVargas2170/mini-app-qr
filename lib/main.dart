@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -41,6 +43,17 @@ void main() async {
   // 3. Iniciar servidor HTTP unificado (config + audio en un solo puerto).
   final server = AppServer(port: 8080);
   server.start();
+
+  // 4. Linux: forzar volumen del sistema a 130% (+6dB) para compensar
+  //    la pérdida típica de GStreamer + PulseAudio en el pipeline de audio.
+  if (Platform.isLinux) {
+    try {
+      await Process.run('pactl', ['set-sink-volume', '@DEFAULT_SINK@', '130%']);
+      debugPrint('[Main]  Volumen del sistema seteado a 130%');
+    } catch (_) {
+      // Fallo silencioso: no bloquear arranque de la app
+    }
+  }
 
   runApp(const MyApp());
 }

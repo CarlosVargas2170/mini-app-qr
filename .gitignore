@@ -46,3 +46,4 @@ app.*.map.json
 /windows/*
 /dist/*
 ARCHITECTURE.md
+/remote-control/*
