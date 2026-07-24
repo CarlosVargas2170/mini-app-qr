@@ -23,7 +23,10 @@ class AppSettings {
   int portVpn = 0;
 
   /// Configuracion de visibilidad de merchants y productos.
-  ProductFilterConfig filterConfig = ProductFilterConfig();
+  ProductFilterConfig filterConfig = ProductFilterConfig(
+    pinnedProducts: {489150, 489161},
+    filterMode: 'whitelist',
+  );
 
   /// Compatibilidad temporal: retorna el primer merchantId de la lista.
   /// @deprecated Usar merchantIds directamente cuando sea posible.
@@ -91,7 +94,11 @@ class AppSettings {
     baseUrlVpn = _defaults.baseUrlVpn;
     portVpn = _defaults.portVpn;
     enableImageCache = true;
-    filterConfig = ProductFilterConfig(); // Resetear filtros
+    // Whitelist: solo mostrar los productos con estos IDs
+    filterConfig = ProductFilterConfig(
+      pinnedProducts: {489150, 489161},
+      filterMode: 'whitelist',
+    );
     if (kDebugMode) {
       debugPrint(
           '[AppSettings] Usando configuracion por defecto (fallback). Merchants: $merchantIds');
@@ -108,7 +115,7 @@ abstract final class _defaults {
   // static const String bearerToken =
   //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
   // static const List<int> merchantIds = [53];
-  static const List<int> merchantIds = [53];
+  static const List<int> merchantIds = [1];
   static const int productId = 457969;
   // static const String baseUrlVpn = "10.13.13.17";
   // static const String baseUrlVpn = "192.168.21.71";

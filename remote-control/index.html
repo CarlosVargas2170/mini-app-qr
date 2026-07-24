@@ -144,6 +144,60 @@
             </div>
           </div>
         </section>
+        
+        <section class="block">
+          <div class="block-header">
+            <span class="block-icon">🔊</span>
+            <span class="block-title">Audios</span>
+          </div>
+          <div class="action-grid cols-3">
+            <button class="action-card" data-audio="/play-question">
+              <span class="action-card-icon">❓</span>
+              <span class="action-card-label">¿Hola, deseas un café?</span>
+            </button>
+            <button class="action-card" data-audio="/play-thanks">
+              <span class="action-card-icon">🙏</span>
+              <span class="action-card-label">Gracias por tu compra, enseguida te lo traigo</span>
+            </button>
+            <button class="action-card" data-audio="/play-buy">
+              <span class="action-card-icon">🛒</span>
+              <span class="action-card-label">Si compras un café, te lo traigo enseguida</span>
+            </button>
+            <button class="action-card" data-audio="/play-order">
+              <span class="action-card-icon">🔔</span>
+              <span class="action-card-label">Tengo un pedido, ¿Lo puedes revisar?, son los que dicen Robot Mesero</span>
+            </button>
+            <button class="action-card" data-audio="/play-attention">
+              <span class="action-card-icon">⚠️</span>
+              <span class="action-card-label">Atención, con permiso con favor</span>
+            </button>
+            <button class="action-card" data-audio="/play-collect-tray">
+              <span class="action-card-icon">🍽️</span>
+              <span class="action-card-label">¿Hola, puedo recoger tu bandeja?</span>
+            </button>
+            <button class="action-card" data-audio="/play-coffee">
+              <span class="action-card-icon">☕</span>
+              <span class="action-card-label">¡Aquí tienes tu café, que lo disfrutes!</span>
+            </button>
+            <button class="action-card danger" onclick="stopLocal(); callEndpoint('POST','/audio/stop')">
+              <span class="action-card-icon">🔇</span>
+              <span class="action-card-label">Detener</span>
+            </button>
+          </div>
+
+          <div class="audio-custom">
+            <div class="audio-custom-row">
+              <input type="text" id="customAsset" placeholder="Ruta del audio (ej: audio/alerta.wav)" value="audio/question_coffe_old2.wav">
+            </div>
+            <div class="audio-custom-row split">
+              <input type="number" id="customVolume" placeholder="Vol" min="0" max="1" step="0.1" value="1.0">
+              <label class="toggle-label">
+                <input type="checkbox" id="customForce"> Forzar
+              </label>
+              <button class="btn-play" onclick="playCustomAudio()">▶️</button>
+            </div>
+          </div>
+        </section>
 
         <!-- ─── Configuración ─── -->
         <section class="block">
