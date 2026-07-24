@@ -114,7 +114,6 @@ class AppServer {
         return;
       }
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.play(asset, volume: volume, force: force);
       
@@ -132,7 +131,6 @@ class AppServer {
     if (path == '/play-question' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
       
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
       
@@ -147,7 +145,6 @@ class AppServer {
     }
 
     if (path == '/play-thanks' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThanks();
       
@@ -162,7 +159,6 @@ class AppServer {
     }
 
     if (path == '/play-buy' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playBuy();
       
@@ -177,7 +173,6 @@ class AppServer {
     }
 
     if (path == '/play-order' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThereIsAnOrder();
       
@@ -192,7 +187,6 @@ class AppServer {
     }
 
     if (path == '/play-attention' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playAttentionExcuseMe();
       
@@ -207,7 +201,6 @@ class AppServer {
     }
 
     if (path == '/play-collect-tray' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playCollectTray();
       
@@ -222,7 +215,6 @@ class AppServer {
     }
 
     if (path == '/play-coffee' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playHereIsCoffee();
       
@@ -250,7 +242,6 @@ class AppServer {
     if (path == '/greet' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
       
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
       
@@ -339,7 +330,6 @@ class AppServer {
       final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
       final force = json['force'] == true;
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.play(asset, volume: volume, force: force);
       
