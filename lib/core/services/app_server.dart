@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../config/app_settings.dart';
 import '../config/config_storage.dart';
 import 'audio_service.dart';
+import 'product_cache.dart';
 import 'ui_command_bus.dart';
 
 /// Servidor HTTP unificado de la aplicacion.
@@ -116,8 +117,9 @@ class AppServer {
 
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
-      final played = await AudioService.play(asset, volume: volume, force: force);
-      
+      final played =
+          await AudioService.play(asset, volume: volume, force: force);
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -131,11 +133,11 @@ class AppServer {
 
     if (path == '/play-question' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
-      
+
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -150,7 +152,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThanks();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -165,7 +167,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playBuy();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -180,7 +182,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThereIsAnOrder();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -195,7 +197,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playAttentionExcuseMe();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -210,7 +212,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playCollectTray();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -225,7 +227,7 @@ class AppServer {
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playHereIsCoffee();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -249,11 +251,11 @@ class AppServer {
 
     if (path == '/greet' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
-      
+
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
-      
+
       _sendJson(response, 200, {
         'success': true,
         'mode': 'product',
@@ -314,6 +316,22 @@ class AppServer {
       }
     }
 
+    // --- Product filter endpoints ---
+    if (path == '/products' && method == 'GET') {
+      await _handleGetProducts(response);
+      return;
+    }
+
+    if (path == '/products/filter' && method == 'POST') {
+      await _handlePostProductsFilter(request, response);
+      return;
+    }
+
+    if (path == '/products/reload' && method == 'POST') {
+      await _handlePostProductsReload(response);
+      return;
+    }
+
     // --- 404 ---
     _sendJson(
         response, 404, {'success': false, 'message': 'Endpoint no encontrado'});
@@ -341,8 +359,9 @@ class AppServer {
 
       // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
-      final played = await AudioService.play(asset, volume: volume, force: force);
-      
+      final played =
+          await AudioService.play(asset, volume: volume, force: force);
+
       _sendJson(response, 200, {
         'success': true,
         'played': played,
@@ -366,7 +385,8 @@ class AppServer {
       'data': {
         'baseUrl': settings.baseUrl,
         'bearerToken': settings.bearerToken,
-        'merchantId': settings.merchantId,
+        'merchantId': settings.merchantId, // Compatibilidad: primer merchant
+        'merchantIds': settings.merchantIds, // Nuevo: lista completa
         'productId': settings.productId,
         'baseUrlVpn': settings.baseUrlVpn,
         'portVpn': settings.portVpn,
@@ -405,9 +425,20 @@ class AppServer {
         needsRestart = true; // Dio se crea en ServiceLocator.init()
       }
       if (json.containsKey('merchantId')) {
-        settings.merchantId = (json['merchantId'] as num).toInt();
+        // Compatibilidad: merchantId (valor único) se convierte a merchantIds (lista)
+        settings.merchantIds = [(json['merchantId'] as num).toInt()];
         updated['merchantId'] = true;
         needsReload = true; // Producto puede recargarse en caliente
+      }
+      if (json.containsKey('merchantIds')) {
+        // Nuevo formato: lista de merchantIds
+        final merchantIdsJson = json['merchantIds'];
+        if (merchantIdsJson is List) {
+          settings.merchantIds =
+              merchantIdsJson.map((e) => (e as num).toInt()).toList();
+          updated['merchantIds'] = true;
+          needsReload = true; // Producto puede recargarse en caliente
+        }
       }
       if (json.containsKey('productId')) {
         settings.productId = (json['productId'] as num).toInt();
@@ -429,10 +460,11 @@ class AppServer {
       await ConfigStorage.write({
         'baseUrl': settings.baseUrl,
         'bearerToken': settings.bearerToken,
-        'merchantId': settings.merchantId,
+        'merchantIds': settings.merchantIds,
         'productId': settings.productId,
         'baseUrlVpn': settings.baseUrlVpn,
         'portVpn': settings.portVpn,
+        'filterConfig': settings.filterConfig.toJson(),
       });
 
       // Recargar producto en caliente si cambio merchantId o productId
@@ -462,6 +494,166 @@ class AppServer {
   }
 
   // -- Helpers --
+
+  // -- Product filter handlers --
+
+  /// GET /products — Retorna todos los productos cargados, agrupados por merchant,
+  /// con su estado de visibilidad segun la configuracion de filtros.
+  Future<void> _handleGetProducts(HttpResponse response) async {
+    final cache = ProductCache();
+    final settings = AppSettings();
+
+    if (!cache.isLoaded) {
+      _sendJson(response, 200, {
+        'success': true,
+        'data': null,
+        'cacheLoaded': false,
+        'message': 'Productos aun no cargados. Espera a que la app inicie.',
+      });
+      return;
+    }
+
+    _sendJson(response, 200, {
+      'success': true,
+      'data': cache.buildProductsResponse(settings.filterConfig),
+      'cacheLoaded': true,
+    });
+  }
+
+  /// POST /products/filter — Actualiza la configuracion de filtros de productos.
+  ///
+  /// Body esperado:
+  /// ```json
+  /// {
+  ///   "merchants": { "53": { "enabled": true }, "54": { "enabled": false } },
+  ///   "products": { "457969": { "visible": false }, "457970": { "visible": true, "pinned": true } },
+  ///   "filterMode": "blacklist",
+  ///   "reload": true
+  /// }
+  /// ```
+  Future<void> _handlePostProductsFilter(
+      HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+
+      final settings = AppSettings();
+      final filter = settings.filterConfig;
+      final changes = <String>[];
+
+      // Actualizar merchants
+      if (json['merchants'] is Map) {
+        final merchants = json['merchants'] as Map<String, dynamic>;
+        for (final entry in merchants.entries) {
+          final merchantId = int.tryParse(entry.key) ?? 0;
+          final data = entry.value as Map<String, dynamic>?;
+          if (data == null) continue;
+
+          if (data.containsKey('enabled')) {
+            final enabled = data['enabled'] == true;
+            if (enabled) {
+              filter.enabledMerchants.add(merchantId);
+            } else {
+              filter.enabledMerchants.remove(merchantId);
+            }
+            changes.add(
+                'Merchant $merchantId: ${enabled ? "habilitado" : "deshabilitado"}');
+          }
+        }
+      }
+
+      // Actualizar productos
+      if (json['products'] is Map) {
+        final products = json['products'] as Map<String, dynamic>;
+        for (final entry in products.entries) {
+          final productId = int.tryParse(entry.key) ?? 0;
+          final data = entry.value as Map<String, dynamic>?;
+          if (data == null) continue;
+
+          if (data.containsKey('visible')) {
+            final visible = data['visible'] == true;
+            if (visible) {
+              filter.hiddenProducts.remove(productId);
+            } else {
+              filter.hiddenProducts.add(productId);
+            }
+            changes
+                .add('Producto $productId: ${visible ? "visible" : "oculto"}');
+          }
+
+          if (data.containsKey('pinned')) {
+            final pinned = data['pinned'] == true;
+            if (pinned) {
+              filter.pinnedProducts.add(productId);
+              filter.hiddenProducts
+                  .remove(productId); // Pinned no puede estar oculto
+            } else {
+              filter.pinnedProducts.remove(productId);
+            }
+            changes
+                .add('Producto $productId: ${pinned ? "fijado" : "desfijado"}');
+          }
+        }
+      }
+
+      // Actualizar modo de filtro
+      if (json['filterMode'] is String) {
+        final mode = json['filterMode'] as String;
+        if (['all', 'blacklist', 'whitelist'].contains(mode)) {
+          filter.filterMode = mode;
+          changes.add('Modo de filtro: $mode');
+        }
+      }
+
+      // Resetear si se pide
+      if (json['reset'] == true) {
+        filter.reset();
+        changes.add('Filtros reseteados');
+      }
+
+      // Persistir
+      await ConfigStorage.write({
+        'baseUrl': settings.baseUrl,
+        'bearerToken': settings.bearerToken,
+        'merchantIds': settings.merchantIds,
+        'productId': settings.productId,
+        'baseUrlVpn': settings.baseUrlVpn,
+        'portVpn': settings.portVpn,
+        'filterConfig': filter.toJson(),
+      });
+
+      final reload = json['reload'] == true;
+      if (reload) {
+        debugPrint(
+            '[AppServer] Filtros actualizados -> emitiendo reloadProduct');
+        UiCommandBus.emit(UiCommand.reloadProduct);
+      }
+
+      _sendJson(response, 200, {
+        'success': true,
+        'message': changes.isEmpty ? 'Sin cambios' : changes.join('; '),
+        'changes': changes,
+        'filterMode': filter.filterMode,
+        'reloaded': reload,
+      });
+    } catch (e) {
+      _sendJson(
+          response, 400, {'success': false, 'message': 'JSON invalido: $e'});
+    }
+  }
+
+  /// POST /products/reload — Fuerza la recarga de productos desde la API.
+  Future<void> _handlePostProductsReload(HttpResponse response) async {
+    debugPrint('[AppServer] Recarga de productos solicitada');
+    UiCommandBus.emit(UiCommand.reloadProduct);
+    _sendJson(response, 200, {
+      'success': true,
+      'message':
+          'Recarga de productos disparada. Los productos se actualizaran en breve.',
+    });
+  }
+
+  // -- JSON helper --
 
   void _sendJson(
       HttpResponse response, int statusCode, Map<String, dynamic> data) {

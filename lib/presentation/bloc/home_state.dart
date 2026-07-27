@@ -15,6 +15,8 @@ class HomeState extends Equatable {
   final List<Product> products;
   final int currentIndex;
   final String merchantName;
+  final List<String> merchantNames;
+  final List<int> merchantIds;
   final String? errorMessage;
 
   const HomeState({
@@ -23,11 +25,22 @@ class HomeState extends Equatable {
     this.products = const [],
     this.currentIndex = 0,
     this.merchantName = 'Mi Tienda',
+    this.merchantNames = const [],
+    this.merchantIds = const [],
     this.errorMessage,
   });
 
   Product? get currentProduct =>
       products.isNotEmpty ? products[currentIndex] : null;
+
+  /// Obtiene el nombre del merchant para un producto especifico.
+  String getMerchantNameForProduct(Product product) {
+    final index = merchantIds.indexOf(product.merchantId);
+    if (index >= 0 && index < merchantNames.length) {
+      return merchantNames[index];
+    }
+    return merchantName; // Fallback
+  }
 
   HomeState copyWith({
     HomeStatus? status,
@@ -35,6 +48,8 @@ class HomeState extends Equatable {
     List<Product>? products,
     int? currentIndex,
     String? merchantName,
+    List<String>? merchantNames,
+    List<int>? merchantIds,
     String? errorMessage,
   }) {
     return HomeState(
@@ -43,11 +58,21 @@ class HomeState extends Equatable {
       products: products ?? this.products,
       currentIndex: currentIndex ?? this.currentIndex,
       merchantName: merchantName ?? this.merchantName,
+      merchantNames: merchantNames ?? this.merchantNames,
+      merchantIds: merchantIds ?? this.merchantIds,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [status, displayMode, products, currentIndex, merchantName, errorMessage];
+  List<Object?> get props => [
+        status,
+        displayMode,
+        products,
+        currentIndex,
+        merchantName,
+        merchantNames,
+        merchantIds,
+        errorMessage,
+      ];
 }
