@@ -41,6 +41,7 @@ class ProductQrPanel extends StatelessWidget {
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -50,23 +51,22 @@ class ProductQrPanel extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.warning,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             // ── QR / Estado ──
-            Expanded(
-              child: Center(child: _buildQrContent()),
-            ),
+            _buildQrContent(),
+
+            const SizedBox(height: 6),
 
             // ── Indicador de polling ──
             if (isPolling &&
                 !isLoading &&
                 !isSuccess &&
                 errorMessage == null) ...[
-              const SizedBox(height: 4),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: const LinearProgressIndicator(
@@ -75,15 +75,12 @@ class ProductQrPanel extends StatelessWidget {
                   minHeight: 3,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Text(
                 'Esperando confirmación...',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
-              const SizedBox(height: 4),
-            ] else ...[
-              const SizedBox(height: 8),
             ],
 
             // ── Mensaje inferior ──
@@ -93,17 +90,17 @@ class ProductQrPanel extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.green,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               )
-            else
+            else if (!isPolling)
               const Text(
                 'Escanea el QR para pagar',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
               ),
           ],
@@ -119,7 +116,7 @@ class ProductQrPanel extends StatelessWidget {
       return const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle, color: Colors.green, size: 64),
+          Icon(Icons.check_circle, color: Colors.green, size: 80),
           SizedBox(height: 12),
           Text(
             '¡PAGO EXITOSO!',
@@ -182,20 +179,31 @@ class ProductQrPanel extends StatelessWidget {
     if (qrBase64 != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accentGlow,
-                blurRadius: 16,
-                spreadRadius: 2,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final size = (constraints.maxWidth * 0.85).clamp(180.0, 400.0);
+            return Center(
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accentGlow,
+                        blurRadius: 16,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: QrImageWidget(qrBase64: qrBase64),
+                ),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.all(12),
-          child: QrImageWidget(qrBase64: qrBase64),
+            );
+          },
         ),
       );
     }
@@ -203,7 +211,7 @@ class ProductQrPanel extends StatelessWidget {
     // ── Fallback: imagen de ejemplo ──
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = constraints.maxWidth * 0.50;
+        final size = constraints.maxWidth * 0.80;
         return Image.asset(
           'assets/images/qr_example.png',
           width: size,

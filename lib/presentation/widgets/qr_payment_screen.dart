@@ -59,6 +59,9 @@ class QrPaymentScreen extends StatefulWidget {
 class _QrPaymentScreenState extends State<QrPaymentScreen> {
   bool _showCancel = false;
 
+  /// Bloqueo local: una vez éxito, no mostrar cancelado/fallido encima.
+  bool _paymentSucceeded = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,16 +92,26 @@ class _QrPaymentScreenState extends State<QrPaymentScreen> {
           child: BlocConsumer<QrPaymentCubit, QrPaymentState>(
             listener: (context, state) {
               if (state.status == QrPaymentStatus.success) {
+                if (_paymentSucceeded) return;
+                _paymentSucceeded = true;
                 widget.onSuccess?.call();
               } else if (state.status == QrPaymentStatus.cancelled) {
+                if (_paymentSucceeded) return;
                 widget.onCancelled?.call();
               } else if (state.status == QrPaymentStatus.failed) {
+                if (_paymentSucceeded) return;
                 widget.onFailed?.call();
               }
             },
             builder: (context, state) {
+              if (_paymentSucceeded ||
+                  state.status == QrPaymentStatus.success) {
+                return _buildSuccess();
+              }
               return switch (state.status) {
-                QrPaymentStatus.initial || QrPaymentStatus.loading => _buildLoading(),
+                QrPaymentStatus.initial ||
+                QrPaymentStatus.loading =>
+                  _buildLoading(),
                 QrPaymentStatus.qrReady => _buildQr(state),
                 QrPaymentStatus.success => _buildSuccess(),
                 QrPaymentStatus.failed => _buildError(state.errorMessage),
@@ -144,7 +157,8 @@ class _QrPaymentScreenState extends State<QrPaymentScreen> {
           const SizedBox(height: 32),
           QrDisplayWidget(
             qrBase64: state.qrBase64,
-            size: (MediaQuery.of(context).size.height - 280).clamp(200.0, 400.0),
+            size:
+                (MediaQuery.of(context).size.height - 280).clamp(200.0, 400.0),
           ),
           const SizedBox(height: 24),
           Text(

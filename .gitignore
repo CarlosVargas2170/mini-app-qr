@@ -47,3 +47,4 @@ app.*.map.json
 /dist/*
 ARCHITECTURE.md
 /remote-control/*
+/test/*
