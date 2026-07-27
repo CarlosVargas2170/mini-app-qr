@@ -42,6 +42,8 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
       amount: amount,
       merchantId: merchantId,
       orderId: orderId,
+      // merchantId: 53,
+      // orderId: 14999,
     );
     print('[QR_REPO] Generando QR con body: ${qrRequest.toJson()}');
 
@@ -49,12 +51,14 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
 
     return Order(
       orderId: orderId,
+      // orderId: 14999,
       qrBase64: qrResponse.qrBase64,
       status: OrderStatus.pending,
       dailyOrderNumber: orderResponse.dailyOrderNumber,
       storeName: orderResponse.storeName,
       provider: orderResponse.provider,
       externalId: orderResponse.externalId,
+      // externalId: '7052',
     );
   }
 

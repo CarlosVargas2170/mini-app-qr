@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../core/config/app_settings.dart';
+import 'package:mini_app_qr/core/config/app_settings.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
@@ -337,7 +337,8 @@ class _HomeViewState extends State<_HomeView> {
         builder: (_) => BlocProvider.value(
           value: cubit,
           child: QrPaymentPage(
-            merchantId: AppSettings().merchantId,
+            merchantId: p.merchantId,
+            // merchantId: AppSettings().merchantId,
             amount: p.price,
             customerName: 'Cliente',
             cartItems: [
@@ -348,7 +349,7 @@ class _HomeViewState extends State<_HomeView> {
               },
             ],
             menuData: {
-              'merchantName': state.merchantName,
+              'merchantName': state.getMerchantNameForProduct(p),
               'categories': [
                 {
                   'products': [
