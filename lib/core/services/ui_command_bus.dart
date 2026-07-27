@@ -22,6 +22,12 @@ enum UiCommand {
 
   /// Mostrar producto, reproducir saludo y resetear carrusel al primer elemento.
   showProductResetCarousel,
+
+  /// Iniciar polling del pago QR del producto visible en home (manual, operador).
+  startPaymentPolling,
+
+  /// Detener el polling del pago QR en home (sin cancelar la orden).
+  stopPaymentPolling,
 }
 
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.

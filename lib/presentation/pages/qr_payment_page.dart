@@ -44,6 +44,9 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   Timer? _countdownTimer;
   Timer? _successReturnTimer;
 
+  /// Bloqueo local: una vez éxito, la UI no vuelve a cancelado/fallido.
+  bool _paymentSucceeded = false;
+
   @override
   void initState() {
     super.initState();
@@ -80,8 +83,13 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   void dispose() {
     _countdownTimer?.cancel();
     _successReturnTimer?.cancel();
-    // Safety net: cancelar polling del cubit si la pagina se destruye
-    context.read<QrPaymentCubit>().cancel();
+    // Solo detener polling: NO emitir cancelled (evita flash de UI cancelada
+    // después del éxito al hacer pop / dispose).
+    try {
+      context.read<QrPaymentCubit>().stopPollingOnly();
+    } catch (_) {
+      // Cubit ya cerrado o no disponible en el árbol.
+    }
     super.dispose();
   }
 
@@ -93,6 +101,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
         child: BlocConsumer<QrPaymentCubit, QrPaymentState>(
           listener: (context, state) {
             if (state.status == QrPaymentStatus.success) {
+              if (_paymentSucceeded) return;
+              _paymentSucceeded = true;
               AudioService.playThanks();
               // Volver al GIF automaticamente despues de unos segundos
               _successReturnTimer?.cancel();
@@ -105,6 +115,17 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             }
           },
           builder: (context, state) {
+            // Prioridad absoluta al éxito: no dejar que cancelled pise la UI.
+            if (_paymentSucceeded || state.status == QrPaymentStatus.success) {
+              return PaymentResultWidget(
+                icon: Icons.check_circle,
+                color: Colors.green,
+                title: 'PAGO EXITOSO',
+                message: 'Tu pedido ha sido confirmado.',
+                onBack: () => Navigator.of(context).pop(),
+              );
+            }
+
             return switch (state.status) {
               QrPaymentStatus.initial ||
               QrPaymentStatus.loading =>
@@ -139,12 +160,6 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                   color: AppColors.textMuted,
                   title: 'CANCELADO',
                   message: 'El pago fue cancelado.',
-                  // showRetry: true,
-                  // onRetry: () {
-                  //   context
-                  //       .read<QrPaymentCubit>()
-                  //       .retryPolling(widget.merchantId);
-                  // },
                   onBack: () => Navigator.of(context).pop(),
                 ),
             };

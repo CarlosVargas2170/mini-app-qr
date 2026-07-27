@@ -12,6 +12,7 @@ import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
 import '../widgets/product_carousel.dart';
+import '../widgets/product_qr_panel_wrapper.dart';
 import 'qr_payment_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -87,6 +88,10 @@ class _HomeViewState extends State<_HomeView> {
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showProductResetCarousel();
+        break;
+      // Polling manual del QR en home: lo gestiona ProductQrPanelWrapper.
+      case UiCommand.startPaymentPolling:
+      case UiCommand.stopPaymentPolling:
         break;
     }
   }
@@ -196,7 +201,6 @@ class _HomeViewState extends State<_HomeView> {
   }
 
   Widget _buildWideLayout(BuildContext context, HomeState state) {
-    final product = state.currentProduct!;
     return Padding(
       padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
@@ -211,46 +215,21 @@ class _HomeViewState extends State<_HomeView> {
           ),
           Expanded(
             flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(Icons.coffee, color: AppColors.accent, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      '¿Quieres un ${product.name}?',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${product.price} Bs',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.warning,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Divider(color: AppColors.border, height: 40),
-                    const SizedBox(height: 12),
-                    _buildPayButton(context, state),
-                  ],
-                ),
-              ),
+            child: Builder(
+              builder: (context) {
+                final p = state.currentProduct!;
+                return ProductQrPanelWrapper(
+                  // Incluye merchantId por si un productId se repitiera entre merchants.
+                  key: ValueKey('${p.merchantId}_${p.id}'),
+                  productId: p.id,
+                  price: p.price,
+                  name: p.name,
+                  description: p.description,
+                  urlImage: p.urlImage,
+                  merchantId: p.merchantId,
+                  merchantName: state.getMerchantNameForProduct(p),
+                );
+              },
             ),
           ),
         ],
@@ -394,11 +373,14 @@ class _HomeViewState extends State<_HomeView> {
               ],
             },
             onSuccess: () {
-              _activePaymentCubit?.cancel();
+              // No llamar cancel(): sobrescribiría success → cancelled en la UI.
+              _activePaymentCubit?.stopPollingOnly();
+              final cubit = _activePaymentCubit;
               _activePaymentCubit = null;
               if (mounted && Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               }
+              cubit?.close();
               if (mounted) {
                 context.read<HomeCubit>().showAttract();
               }
@@ -408,7 +390,9 @@ class _HomeViewState extends State<_HomeView> {
       ),
     )
         .then((_) {
-      _activePaymentCubit?.cancel();
+      // Al salir de la página (back / pop): detener sin forzar UI cancelada.
+      _activePaymentCubit?.stopPollingOnly();
+      _activePaymentCubit?.close();
       _activePaymentCubit = null;
     });
   }

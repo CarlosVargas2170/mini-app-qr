@@ -36,6 +36,9 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         super(const QrPaymentState());
 
   /// Inicia el flujo completo de pago QR.
+  ///
+  /// Si [autoPoll] es `false`, solo genera la orden + QR y deja el polling
+  /// para activarlo después con [beginPolling] (flujo home / operador).
   Future<void> startQrPayment({
     required int merchantId,
     required String customerName,
@@ -45,11 +48,14 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     required Map<String, dynamic>? menuData,
     required double amount,
     String? paymentReferenceOverride,
+    bool autoPoll = true,
   }) async {
     // Reutilizar QR existente si el usuario vuelve a elegirlo
     if (state.qrBase64 != null && state.orderId != null) {
       emit(state.copyWith(status: QrPaymentStatus.qrReady));
-      _startPolling(merchantId, state.orderId!);
+      if (autoPoll) {
+        _startPolling(merchantId, state.orderId!);
+      }
       return;
     }
 
@@ -73,7 +79,9 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         qrBase64: order.qrBase64,
       ));
 
-      _startPolling(merchantId, order.orderId);
+      if (autoPoll) {
+        _startPolling(merchantId, order.orderId);
+      }
     } catch (e) {
       debugPrint('[QrPaymentCubit] startQrPayment FAILED: $e');
       emit(state.copyWith(
@@ -83,20 +91,76 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     }
   }
 
+  /// Restaura un QR/orden existentes en el estado sin iniciar polling.
+  ///
+  /// Útil para cache hit en home: mostrar el QR y dejar el poll al operador.
+  void restoreQr({
+    required int orderId,
+    required String qrBase64,
+  }) {
+    _stopPolling();
+    emit(state.copyWith(
+      status: QrPaymentStatus.qrReady,
+      orderId: orderId,
+      qrBase64: qrBase64,
+      isPolling: false,
+      errorMessage: null,
+    ));
+  }
+
+  /// Inicia (o reinicia) el polling del pago.
+  ///
+  /// Puede usar [orderId]/[qrBase64] externos (p. ej. desde caché de home)
+  /// o los del estado actual del cubit.
+  void beginPolling(
+    int merchantId, {
+    int? orderId,
+    String? qrBase64,
+  }) {
+    final resolvedOrderId = orderId ?? state.orderId;
+    final resolvedQr = qrBase64 ?? state.qrBase64;
+
+    if (resolvedOrderId == null) {
+      debugPrint(
+          '[QrPaymentCubit] beginPolling ignorado: no hay orderId disponible');
+      return;
+    }
+
+    emit(state.copyWith(
+      status: QrPaymentStatus.qrReady,
+      orderId: resolvedOrderId,
+      qrBase64: resolvedQr,
+      errorMessage: null,
+    ));
+    _startPolling(merchantId, resolvedOrderId);
+  }
+
   /// Reinicia el polling si ya hay un QR generado.
   void retryPolling(int merchantId) {
-    if (state.orderId != null && state.qrBase64 != null) {
-      emit(state.copyWith(
-        status: QrPaymentStatus.qrReady,
-        errorMessage: null,
-      ));
-      _startPolling(merchantId, state.orderId!);
+    beginPolling(merchantId);
+  }
+
+  /// Detiene el polling sin cancelar la orden ni limpiar el QR.
+  void stopPollingOnly() {
+    _stopPolling();
+    if (state.isPolling) {
+      emit(state.copyWith(isPolling: false));
     }
   }
 
   /// Cancela el pago y detiene el polling.
+  ///
+  /// Si el pago ya fue exitoso, solo detiene el timer y **no** sobrescribe
+  /// el estado (evita que la UI de "CANCELADO" pise el de "PAGO EXITOSO").
   void cancel() {
     _stopPolling();
+    if (state.status == QrPaymentStatus.success) {
+      debugPrint('[QrPaymentCubit] cancel() ignorado: pago ya exitoso');
+      return;
+    }
+    if (state.status == QrPaymentStatus.cancelled) {
+      return;
+    }
     emit(state.copyWith(
       status: QrPaymentStatus.cancelled,
       isPolling: false,
@@ -119,7 +183,8 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   }) async {
     final orderId = state.orderId;
     if (orderId == null) {
-      debugPrint('[QrPaymentCubit] updateOrderDetails ignorado: no hay orderId');
+      debugPrint(
+          '[QrPaymentCubit] updateOrderDetails ignorado: no hay orderId');
       return;
     }
 
@@ -172,7 +237,8 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     _stopPolling();
     emit(state.copyWith(
       status: QrPaymentStatus.failed,
-      errorMessage: 'El pago fue rechazado o expiró. Por favor intenta de nuevo.',
+      errorMessage:
+          'El pago fue rechazado o expiró. Por favor intenta de nuevo.',
       orderId: null,
       qrBase64: null,
       isPolling: false,

@@ -50,8 +50,8 @@ class AudioService {
     try {
       // Pequeña espera para dar tiempo a GStreamer a registrar el sink input
       await Future.delayed(const Duration(milliseconds: 300));
-      await Process.run('pactl', ['set-sink-volume', '@DEFAULT_SINK@', '130%']);
-      debugPrint('[AudioService] 🔊 Volumen boosteado a 130%');
+      await Process.run('pactl', ['set-sink-volume', '@DEFAULT_SINK@', '90%']);
+      debugPrint('[AudioService] 🔊 Volumen boosteado a 90%');
     } catch (_) {
       // Fallo silencioso: no interrumpir la reproducción
     }

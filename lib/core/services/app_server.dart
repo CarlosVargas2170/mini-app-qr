@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../config/app_settings.dart';
 import '../config/config_storage.dart';
 import 'audio_service.dart';
+import 'payment_counter.dart';
+import 'payment_polling_status.dart';
 import 'product_cache.dart';
 import 'ui_command_bus.dart';
 
@@ -28,6 +30,10 @@ import 'ui_command_bus.dart';
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
 /// - `POST /product`        -> Muestra solo el producto
 /// - `POST /proximity/away` -> Vuelve a reposo
+/// --- Pago QR (home) ---
+/// - `POST /payment/start-polling` -> Activa polling del QR visible en home
+/// - `POST /payment/stop-polling`  -> Detiene polling sin cancelar la orden
+/// - `GET  /payment/polling-status` -> Estado actual del polling (remote-control)
 /// --- Config ---
 /// - `GET  /config`         -> Lee configuracion actual
 /// - `POST /config`         -> Guarda nueva configuracion
@@ -115,15 +121,22 @@ class AppServer {
         return;
       }
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
-      final played =
-          await AudioService.play(asset, volume: volume, force: force);
+
+      // displayText opcional vía query param (?displayText=Hola)
+      final displayText = params['displayText'];
+      final played = await AudioService.play(
+        asset,
+        volume: volume,
+        force: force,
+        displayText: displayText,
+      );
 
       _sendJson(response, 200, {
         'success': true,
         'played': played,
         'asset': asset,
+        'displayText': displayText,
         'message': played
             ? 'Reproduciendo "$asset"'
             : 'Cooldown activo, audio omitido',
@@ -134,7 +147,6 @@ class AppServer {
     if (path == '/play-question' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
 
@@ -149,7 +161,6 @@ class AppServer {
     }
 
     if (path == '/play-thanks' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThanks();
 
@@ -164,7 +175,6 @@ class AppServer {
     }
 
     if (path == '/play-buy' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playBuy();
 
@@ -179,7 +189,6 @@ class AppServer {
     }
 
     if (path == '/play-order' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playThereIsAnOrder();
 
@@ -194,7 +203,6 @@ class AppServer {
     }
 
     if (path == '/play-attention' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playAttentionExcuseMe();
 
@@ -209,7 +217,6 @@ class AppServer {
     }
 
     if (path == '/play-collect-tray' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playCollectTray();
 
@@ -224,7 +231,6 @@ class AppServer {
     }
 
     if (path == '/play-coffee' && method == 'POST') {
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playHereIsCoffee();
 
@@ -252,7 +258,6 @@ class AppServer {
     if (path == '/greet' && method == 'POST') {
       UiCommandBus.emit(UiCommand.showProductResetCarousel);
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
 
@@ -283,6 +288,40 @@ class AppServer {
       _sendJson(response, 200, {
         'success': true,
         'message': 'Pago cancelado, volviendo al producto'
+      });
+      return;
+    }
+
+    // --- Payment polling (manual, operador) ---
+    if (path == '/payment/start-polling' && method == 'POST') {
+      UiCommandBus.emit(UiCommand.startPaymentPolling);
+      _sendJson(response, 200, {
+        'success': true,
+        'message': 'Polling de pago activado en el producto visible de la home',
+      });
+      return;
+    }
+
+    if (path == '/payment/stop-polling' && method == 'POST') {
+      UiCommandBus.emit(UiCommand.stopPaymentPolling);
+      _sendJson(response, 200, {
+        'success': true,
+        'message': 'Polling de pago detenido',
+      });
+      return;
+    }
+
+    if (path == '/payment/polling-status' && method == 'GET') {
+      _sendJson(response, 200, PaymentPollingStatus().toJson());
+      return;
+    }
+
+    if (path == '/payment/reset-counter' && method == 'POST') {
+      PaymentCounter().reset();
+      _sendJson(response, 200, {
+        'success': true,
+        'message': 'Contador de ventas reiniciado',
+        'counter': PaymentCounter().toJson(),
       });
       return;
     }
@@ -357,15 +396,22 @@ class AppServer {
       final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
       final force = json['force'] == true;
 
-      // 🔥 CAMBIO: Marcar como llamada remota ANTES de reproducir
       AudioService.setRemoteCall(true);
-      final played =
-          await AudioService.play(asset, volume: volume, force: force);
+
+      // displayText opcional: el remote-control puede enviar el texto a mostrar.
+      final displayText = json['displayText'] as String?;
+      final played = await AudioService.play(
+        asset,
+        volume: volume,
+        force: force,
+        displayText: displayText,
+      );
 
       _sendJson(response, 200, {
         'success': true,
         'played': played,
         'asset': asset,
+        'displayText': displayText,
         'message': played
             ? 'Reproduciendo "$asset"'
             : 'Cooldown activo, audio omitido',
