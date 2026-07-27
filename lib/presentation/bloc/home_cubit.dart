@@ -34,12 +34,6 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       final result = await _loadWithRetry();
 
-      // Log de productos obtenidos del backend (antes del filtro)
-      final allIds = result.products.map((p) => '${p.id}').join(', ');
-      debugPrint(
-          '[HomeCubit] Productos obtenidos de la API: ${result.products.length} total');
-      debugPrint('[HomeCubit] IDs productos API: [$allIds]');
-
       // Aplicar filtro de visibilidad antes de emitir el estado
       final settings = AppSettings();
       final filter = settings.filterConfig;
@@ -49,10 +43,6 @@ class HomeCubit extends Cubit<HomeState> {
 
       debugPrint(
           '[HomeCubit] Filtro aplicado: ${result.products.length} total -> ${filteredProducts.length} visibles (modo: ${filter.filterMode})');
-
-      // Log de IDs de productos visibles (después del filtro)
-      final visibleIds = filteredProducts.map((p) => '${p.id}').join(', ');
-      debugPrint('[HomeCubit] IDs productos visibles: [$visibleIds]');
 
       emit(state.copyWith(
         status: HomeStatus.loaded,

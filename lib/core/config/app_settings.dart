@@ -96,9 +96,8 @@ class AppSettings {
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
-      // pinnedProducts: {457969},
-      // pinnedProducts: {457969},
-      filterMode: 'all',
+      pinnedProducts: {489150, 489161},
+      filterMode: 'whitelist',
     );
     if (kDebugMode) {
       debugPrint(
@@ -115,8 +114,8 @@ abstract final class _defaults {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MjQxMDQ5MCwiZXhwIjoxODEzOTQ2NDkwfQ.M9fdig91KYqiGBTrrFMYfYjsRf5ZhmvICxT_q1yeDLs';
   // static const String bearerToken =
   //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
-  // static const List<int> merchantIds = [1];
-  static const List<int> merchantIds = [53];
+  // static const List<int> merchantIds = [53];
+  static const List<int> merchantIds = [1];
   static const int productId = 457969;
   // static const String baseUrlVpn = "10.13.13.17";
   // static const String baseUrlVpn = "192.168.21.71";

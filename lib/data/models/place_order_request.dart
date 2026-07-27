@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-
 /// Body para crear una orden en estado pendiente.
 /// Es generico; puedes construir el body con `toJson()` o pasar un `Map<String,dynamic>` directo.
 class PlaceOrderRequestDto {
@@ -28,7 +25,7 @@ class PlaceOrderRequestDto {
     final items = _buildItems();
     final total = _calculateTotal(items);
 
-    final body = {
+    return {
       'cart': {
         'metadataMerchant': {
           'id': merchantId,
@@ -48,9 +45,6 @@ class PlaceOrderRequestDto {
       if (phoneNumber != null && phoneNumber!.isNotEmpty)
         'phoneNumber': phoneNumber,
     };
-
-    debugPrint('[ORDER_BODY] ${jsonEncode(body)}');
-    return body;
   }
 
   List<Map<String, dynamic>> _buildItems() {
@@ -60,7 +54,8 @@ class PlaceOrderRequestDto {
       if (name.isEmpty) continue;
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
       if (grouped.containsKey(name)) {
-        grouped[name]!['quantity'] = (grouped[name]!['quantity'] as int) + qty;
+        grouped[name]!['quantity'] =
+            (grouped[name]!['quantity'] as int) + qty;
       } else {
         grouped[name] = Map<String, dynamic>.from(item)..['quantity'] = qty;
       }
@@ -73,15 +68,14 @@ class PlaceOrderRequestDto {
       final price = product?['price'] != null
           ? (product!['price'] as num).toDouble()
           : (item['price'] as num?)?.toDouble() ?? 0.0;
-      final rawImage =
-          product?['urlImage'] as String? ?? product?['image'] as String? ?? '';
-      final imageUrl = rawImage.isNotEmpty
-          ? rawImage
-          : 'https://placeholder.com/product.png';
+      final rawImage = product?['urlImage'] as String? ??
+          product?['image'] as String? ??
+          '';
+      final imageUrl =
+          rawImage.isNotEmpty ? rawImage : 'https://placeholder.com/product.png';
 
       return {
-        'id':
-            'totem-${name.replaceAll(' ', '-').toLowerCase()}-${DateTime.now().microsecondsSinceEpoch}',
+        'id': 'totem-${name.replaceAll(' ', '-').toLowerCase()}-${DateTime.now().microsecondsSinceEpoch}',
         'product': {
           'id': (product?['id'] as num?)?.toInt() ?? 0,
           'name': name,
@@ -114,8 +108,10 @@ class PlaceOrderRequestDto {
   }
 
   double _calculateTotal(List<Map<String, dynamic>> items) {
-    return items.fold(0.0,
-        (sum, item) => sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0));
+    return items.fold(
+        0.0,
+        (sum, item) =>
+            sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0));
   }
 
   String _merchantName() {

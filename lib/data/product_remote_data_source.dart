@@ -68,7 +68,6 @@ class ProductRemoteDataSource {
       },
     );
 
-
     final List<dynamic> categories = response.data;
     final List<Product> products = [];
 
@@ -82,14 +81,6 @@ class ProductRemoteDataSource {
     }
 
     return products;
-
-    
-    // final response = await _dio.get('/v1/merchants/$merchantId/products');
-    // final List<dynamic> data = response.data;
-    // final products = data
-    //     .map((e) => Product.fromJson(e as Map<String, dynamic>))
-    //     .toList();
-    // return products;
   }
 
   /// Obtiene info del merchant (para el nombre y logo).
