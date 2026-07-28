@@ -16,7 +16,7 @@ class HomeCubit extends Cubit<HomeState> {
   Timer? _inactivityTimer;
 
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
-  static const _inactivityTimeout = Duration(seconds: 60);
+  static const _inactivityTimeout = Duration(seconds: 300);
 
   HomeCubit({
     required GetProductsUseCase getProducts,

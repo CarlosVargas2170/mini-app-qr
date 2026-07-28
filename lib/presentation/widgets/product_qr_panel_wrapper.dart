@@ -10,6 +10,7 @@ import '../../core/services/ui_command_bus.dart';
 import '../bloc/qr_payment_cubit.dart';
 import '../bloc/qr_payment_state.dart';
 import 'product_qr_panel.dart';
+import '../../core/config/app_settings.dart';
 
 /// Entrada de caché para un QR generado.
 ///
@@ -172,7 +173,7 @@ class _ProductQrPanelWrapperState extends State<ProductQrPanelWrapper> {
           .startQrPayment(
         merchantId: widget.merchantId,
         amount: widget.price,
-        customerName: 'Cliente',
+        customerName: AppSettings.customerName,
         phoneNumber: '',
         whereEat: 'dineIn',
         cartItems: cartItems,

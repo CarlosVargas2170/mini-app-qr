@@ -32,7 +32,8 @@ class AppSettings {
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
 
   /// Nombre del cliente usado al crear órdenes.
-  static String customerName = 'Mesero-test-prod';
+  // static String customerName = 'Mesero-test-prod';
+  static String customerName = 'Robot Mesero';
 
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
@@ -110,14 +111,14 @@ class AppSettings {
 
 /// Valores por defecto cuando no hay config guardada.
 abstract final class _defaults {
-  static const String baseUrl = 'https://api-totem.sandbox.nexuspatiotech.com/api';
-  // static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
+  // static const String baseUrl = 'https://api-totem.sandbox.nexuspatiotech.com/api';
+  static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
   static const String bearerToken =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MjQxMDQ5MCwiZXhwIjoxODEzOTQ2NDkwfQ.M9fdig91KYqiGBTrrFMYfYjsRf5ZhmvICxT_q1yeDLs';
   // static const String bearerToken =
   //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
   // static const List<int> merchantIds = [53];
-  static const List<int> merchantIds = [1];
+  static const List<int> merchantIds = [53];
   static const int productId = 457969;
   // static const String baseUrlVpn = "10.13.13.17";
   // static const String baseUrlVpn = "192.168.21.71";

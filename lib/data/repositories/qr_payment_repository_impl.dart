@@ -5,6 +5,8 @@ import '../datasources/qr_payment_remote_data_source.dart';
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
 import '../models/update_order_request.dart';
+import '../../core/config/app_settings.dart';
+
 
 class QrPaymentRepositoryImpl implements QrPaymentRepository {
   final QrPaymentRemoteDataSource _remote;
@@ -24,7 +26,7 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
   }) async {
     final request = PlaceOrderRequestDto(
       merchantId: merchantId,
-      customerName: customerName.trim().isNotEmpty ? customerName.trim() : 'Cliente',
+      customerName: customerName.trim().isNotEmpty ? customerName.trim() : AppSettings.customerName,
       phoneNumber: phoneNumber,
       whereEat: whereEat.isNotEmpty ? whereEat : 'dineIn',
       paymentMethodType: 'qr',
