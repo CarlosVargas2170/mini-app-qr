@@ -32,6 +32,9 @@ class AppSettings {
   /// @deprecated Usar merchantIds directamente cuando sea posible.
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
 
+  /// Nombre del cliente usado al crear órdenes.
+  static String customerName = 'Robot Mesero';
+
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
       bearerToken.isNotEmpty &&
