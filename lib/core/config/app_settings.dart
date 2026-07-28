@@ -99,8 +99,8 @@ class AppSettings {
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
-      pinnedProducts: {489150, 489161},
-      filterMode: 'whitelist',
+      // pinnedProducts: {489150, 489161},
+      filterMode: 'all',
     );
     if (kDebugMode) {
       debugPrint(
