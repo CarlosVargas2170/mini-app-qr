@@ -348,7 +348,6 @@ class _HomeViewState extends State<_HomeView> {
           child: QrPaymentPage(
             merchantId: p.merchantId,
             amount: p.price,
-            customerName: 'Cliente',
             cartItems: [
               {
                 'name': p.name,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/config/app_settings.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../../presentation/bloc/qr_payment_cubit.dart';
@@ -12,7 +13,7 @@ import '../widgets/qr_payment_content.dart';
 class QrPaymentPage extends StatefulWidget {
   final int merchantId;
   final double amount;
-  final String customerName;
+  final String? customerName;
   final String phoneNumber;
   final String whereEat;
   final List<Map<String, dynamic>> cartItems;
@@ -24,7 +25,7 @@ class QrPaymentPage extends StatefulWidget {
     super.key,
     required this.merchantId,
     required this.amount,
-    this.customerName = 'Cliente',
+    this.customerName,
     this.phoneNumber = '',
     this.whereEat = 'dineIn',
     required this.cartItems,
@@ -55,7 +56,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       context.read<QrPaymentCubit>().startQrPayment(
             merchantId: widget.merchantId,
             amount: widget.amount,
-            customerName: 'Robot Mesero', // Hardcoded
+            customerName: widget.customerName ?? AppSettings.customerName,
             phoneNumber: widget.phoneNumber,
             whereEat: widget.whereEat,
             cartItems: widget.cartItems,

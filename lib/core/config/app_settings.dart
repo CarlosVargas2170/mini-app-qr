@@ -24,13 +24,15 @@ class AppSettings {
 
   /// Configuracion de visibilidad de merchants y productos.
   ProductFilterConfig filterConfig = ProductFilterConfig(
-    pinnedProducts: {489150, 489161},
-    filterMode: 'whitelist',
+    filterMode: 'all',
   );
 
   /// Compatibilidad temporal: retorna el primer merchantId de la lista.
   /// @deprecated Usar merchantIds directamente cuando sea posible.
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
+
+  /// Nombre del cliente usado al crear órdenes.
+  static String customerName = 'Mesero-test-prod';
 
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
