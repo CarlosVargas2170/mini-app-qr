@@ -122,6 +122,6 @@ abstract final class _defaults {
   static const int productId = 457969;
   // static const String baseUrlVpn = "10.13.13.17";
   // static const String baseUrlVpn = "192.168.21.71";
-  static const String baseUrlVpn = "localhost";
+  static const String baseUrlVpn = "100.99.244.72";
   static const int portVpn = 5050;
 }
