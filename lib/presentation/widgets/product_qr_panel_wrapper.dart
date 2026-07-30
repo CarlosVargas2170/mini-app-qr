@@ -31,8 +31,10 @@ class _CachedQr {
     required this.createdAt,
   });
 
-  /// Un QR se considera expirado después de 3 minutos.
-  bool get isExpired => DateTime.now().difference(createdAt).inMinutes >= 3;
+  /// Un QR se considera expirado según [AppSettings.qrExpirationMinutes].
+  bool get isExpired =>
+      DateTime.now().difference(createdAt).inMinutes >=
+      AppSettings.qrExpirationMinutes;
 }
 
 /// Clave de caché compuesta: evita colisiones si dos merchants comparten productId.

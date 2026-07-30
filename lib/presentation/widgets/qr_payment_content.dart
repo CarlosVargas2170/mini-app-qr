@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/config/app_settings.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../../presentation/bloc/qr_payment_state.dart';
 import 'qr_image_widget.dart';
@@ -42,7 +43,8 @@ class QrPaymentContent extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textMuted),
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: AppColors.textMuted),
                       ),
                       const Expanded(
                         child: Text(
@@ -74,10 +76,11 @@ class QrPaymentContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'El QR expira en 3 minutos',
+                      Text(
+                        'El QR expira en ${AppSettings.qrExpirationMinutes} minutos',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.warning, fontSize: 14),
+                        style: const TextStyle(
+                            color: AppColors.warning, fontSize: 14),
                       ),
                     ],
                   ),
@@ -111,7 +114,8 @@ class QrPaymentContent extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                           child: const LinearProgressIndicator(
                             backgroundColor: AppColors.border,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(AppColors.accent),
                             minHeight: 3,
                           ),
                         ),
@@ -122,7 +126,8 @@ class QrPaymentContent extends StatelessWidget {
                             ? 'Esperando confirmacion de pago...'
                             : 'Consultando estado...',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 13),
                       ),
                       const SizedBox(height: 16),
                       AnimatedSwitcher(
@@ -130,7 +135,8 @@ class QrPaymentContent extends StatelessWidget {
                         child: canCancel
                             ? TextButton.icon(
                                 key: const ValueKey('cancel_active'),
-                                onPressed: onCancel ?? () => Navigator.of(context).pop(),
+                                onPressed: onCancel ??
+                                    () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.arrow_back_rounded,
                                     color: AppColors.warning, size: 18),
                                 label: const Text(
@@ -141,7 +147,8 @@ class QrPaymentContent extends StatelessWidget {
                               )
                             : Padding(
                                 key: const ValueKey('cancel_countdown'),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
                                 child: Text(
                                   'Podras cancelar en $secondsLeft s...',
                                   textAlign: TextAlign.center,

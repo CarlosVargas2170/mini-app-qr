@@ -35,6 +35,9 @@ class AppSettings {
   // static String customerName = 'Mesero-test-prod';
   static String customerName = 'Robot Mesero';
 
+  /// Tiempo en minutos antes de que un QR cacheado se considere expirado.
+  static int qrExpirationMinutes = 3;
+
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
       bearerToken.isNotEmpty &&

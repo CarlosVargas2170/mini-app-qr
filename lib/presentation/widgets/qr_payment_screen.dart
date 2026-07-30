@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/config/app_settings.dart';
 import '../bloc/qr_payment_cubit.dart';
 import '../bloc/qr_payment_state.dart';
 import 'qr_display_widget.dart';
@@ -24,7 +25,7 @@ class QrPaymentScreen extends StatefulWidget {
 
   final String title;
   final String subtitle;
-  final String expiryMessage;
+  final String? expiryMessage;
   final String cancelButtonText;
   final Duration cancelButtonDelay;
   final VoidCallback? onSuccess;
@@ -43,7 +44,7 @@ class QrPaymentScreen extends StatefulWidget {
     this.paymentReferenceOverride,
     this.title = 'ESCANEA PARA PAGAR',
     this.subtitle = 'Usa tu app de pagos favorita',
-    this.expiryMessage = 'El QR expira en 3 minutos',
+    this.expiryMessage,
     // this.cancelButtonText = 'Cambiar metodo de pago',
     this.cancelButtonText = 'Cancelar',
     this.cancelButtonDelay = const Duration(seconds: 10),
@@ -162,7 +163,8 @@ class _QrPaymentScreenState extends State<QrPaymentScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            widget.expiryMessage,
+            widget.expiryMessage ??
+                'El QR expira en ${AppSettings.qrExpirationMinutes} minutos',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.orange,
                 ),
