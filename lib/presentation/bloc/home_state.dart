@@ -19,6 +19,10 @@ class HomeState extends Equatable {
   final List<int> merchantIds;
   final String? errorMessage;
 
+  /// Ruta del asset GIF que se muestra en modo [DisplayMode.attract].
+  /// Por defecto `assets/images/attract.gif`.
+  final String attractGifAsset;
+
   const HomeState({
     this.status = HomeStatus.initial,
     this.displayMode = DisplayMode.idle,
@@ -28,6 +32,7 @@ class HomeState extends Equatable {
     this.merchantNames = const [],
     this.merchantIds = const [],
     this.errorMessage,
+    this.attractGifAsset = 'assets/images/attract.gif',
   });
 
   Product? get currentProduct =>
@@ -51,6 +56,7 @@ class HomeState extends Equatable {
     List<String>? merchantNames,
     List<int>? merchantIds,
     String? errorMessage,
+    String? attractGifAsset,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -61,6 +67,7 @@ class HomeState extends Equatable {
       merchantNames: merchantNames ?? this.merchantNames,
       merchantIds: merchantIds ?? this.merchantIds,
       errorMessage: errorMessage ?? this.errorMessage,
+      attractGifAsset: attractGifAsset ?? this.attractGifAsset,
     );
   }
 
@@ -74,5 +81,6 @@ class HomeState extends Equatable {
         merchantNames,
         merchantIds,
         errorMessage,
+        attractGifAsset,
       ];
 }

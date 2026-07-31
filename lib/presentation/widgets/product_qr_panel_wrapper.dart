@@ -47,7 +47,7 @@ String _cacheKey(int merchantId, int productId) => '${merchantId}_$productId';
 /// ```
 /// init → generar/cachear QR (SIN polling) → mostrar QR
 ///              ↓
-///   operador: UiCommand.startPaymentPolling
+///   operador: StartPaymentPolling
 ///              ↓
 ///   mostrar UI "Esperando confirmación..." + Timer.periodic
 ///              ↓
@@ -223,13 +223,13 @@ class _ProductQrPanelWrapperState extends State<ProductQrPanelWrapper> {
     if (!mounted) return;
 
     switch (cmd) {
-      case UiCommand.startPaymentPolling:
+      case StartPaymentPolling():
         _activatePolling();
         break;
-      case UiCommand.stopPaymentPolling:
-      case UiCommand.cancelPayment:
-      case UiCommand.showAttract:
-      case UiCommand.showIdle:
+      case StopPaymentPolling():
+      case CancelPayment():
+      case ShowAttract():
+      case ShowIdle():
         _deactivatePolling();
         break;
       default:
