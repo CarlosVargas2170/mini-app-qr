@@ -187,18 +187,35 @@ class HomeCubit extends Cubit<HomeState> {
   }
 
   /// Muestra el video de atraccion (robot cerca de persona).
-  Future<void> showAttract() async {
-    debugPrint('[HomeCubit] showAttract() llamado');
+  ///
+  /// Si [gifAsset] es provisto, actualiza el GIF mostrado.
+  /// Si es null, mantiene el GIF actual configurado en el estado.
+  Future<void> showAttract({String? gifAsset}) async {
+    debugPrint('[HomeCubit] showAttract(gifAsset: $gifAsset) llamado');
     _cancelInactivityTimer();
 
-    emit(state.copyWith(displayMode: DisplayMode.attract));
-    debugPrint('[HomeCubit] Estado emitido: displayMode=attract');
+    emit(state.copyWith(
+      displayMode: DisplayMode.attract,
+      attractGifAsset: gifAsset ?? state.attractGifAsset,
+    ));
+    debugPrint(
+        '[HomeCubit] Estado emitido: displayMode=attract, gif=${gifAsset ?? state.attractGifAsset}');
 
     if (state.status == HomeStatus.error) {
       debugPrint(
           '[HomeCubit] showAttract() -> status=error, recargando en background...');
       await load();
     }
+  }
+
+  /// Cambia el GIF de atraccion y forza el modo attract inmediatamente.
+  ///
+  /// [assetPath] debe ser una ruta de asset valida (ej: `assets/images/coffee.gif`).
+  /// Si es null, se usa el GIF por defecto (`assets/images/normal.gif`).
+  Future<void> setAttractGif(String? assetPath) async {
+    final gif = assetPath ?? 'assets/images/normal.gif';
+    debugPrint('[HomeCubit] setAttractGif($gif) llamado');
+    await showAttract(gifAsset: gif);
   }
 
   /// Muestra el carrusel de productos y programa el timer de inactividad.

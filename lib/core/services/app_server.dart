@@ -30,6 +30,10 @@ import 'ui_command_bus.dart';
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
 /// - `POST /product`        -> Muestra solo el producto
 /// - `POST /proximity/away` -> Vuelve a reposo
+/// - `POST /carrusel/product` -> Idéntico a /proximity/near
+/// --- Attract GIF ---
+/// - `POST /attract/set`    -> Cambia el GIF de atraccion (body: {"gif": "nombre"})
+/// - `GET  /attract/current` -> Devuelve el nombre del GIF actual
 /// --- Pago QR (home) ---
 /// - `POST /payment/start-polling` -> Activa polling del QR visible en home
 /// - `POST /payment/stop-polling`  -> Detiene polling sin cancelar la orden
@@ -145,7 +149,7 @@ class AppServer {
     }
 
     if (path == '/play-question' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showProductResetCarousel);
+      UiCommandBus.emit(const ShowProductResetCarousel());
 
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
@@ -246,7 +250,7 @@ class AppServer {
 
     // --- Robot / Proximity endpoints ---
     if (path == '/proximity/near' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showAttract);
+      UiCommandBus.emit(const ShowAttract());
       _sendJson(response, 200, {
         'success': true,
         'mode': 'attract',
@@ -256,7 +260,7 @@ class AppServer {
     }
 
     if (path == '/greet' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showProductResetCarousel);
+      UiCommandBus.emit(const ShowProductResetCarousel());
 
       AudioService.setRemoteCall(true);
       final played = await AudioService.playQuestion();
@@ -273,7 +277,7 @@ class AppServer {
     }
 
     if (path == '/product' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showProduct);
+      UiCommandBus.emit(const ShowProduct());
       _sendJson(response, 200, {
         'success': true,
         'mode': 'product',
@@ -284,7 +288,7 @@ class AppServer {
     }
 
     if (path == '/cancel-payment' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.cancelPayment);
+      UiCommandBus.emit(const CancelPayment());
       _sendJson(response, 200, {
         'success': true,
         'message': 'Pago cancelado, volviendo al producto'
@@ -294,7 +298,7 @@ class AppServer {
 
     // --- Payment polling (manual, operador) ---
     if (path == '/payment/start-polling' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.startPaymentPolling);
+      UiCommandBus.emit(const StartPaymentPolling());
       _sendJson(response, 200, {
         'success': true,
         'message': 'Polling de pago activado en el producto visible de la home',
@@ -303,7 +307,7 @@ class AppServer {
     }
 
     if (path == '/payment/stop-polling' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.stopPaymentPolling);
+      UiCommandBus.emit(const StopPaymentPolling());
       _sendJson(response, 200, {
         'success': true,
         'message': 'Polling de pago detenido',
@@ -327,14 +331,14 @@ class AppServer {
     }
 
     if (path == '/proximity/away' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showIdle);
+      UiCommandBus.emit(const ShowIdle());
       _sendJson(response, 200,
           {'success': true, 'mode': 'idle', 'message': 'Volviendo a reposo'});
       return;
     }
 
     if (path == '/carrusel/product' && method == 'POST') {
-      UiCommandBus.emit(UiCommand.showAttract);
+      UiCommandBus.emit(const ShowAttract());
       _sendJson(response, 200, {
         'success': true,
         'mode': 'attract',
@@ -368,6 +372,22 @@ class AppServer {
 
     if (path == '/products/reload' && method == 'POST') {
       await _handlePostProductsReload(response);
+      return;
+    }
+
+    // --- Attract GIF endpoints ---
+    if (path == '/attract/set' && method == 'POST') {
+      await _handleSetAttractGif(request, response);
+      return;
+    }
+
+    if (path == '/attract/current' && method == 'GET') {
+      final gifName = UiCommandBus.currentGifName;
+      _sendJson(response, 200, {
+        'success': true,
+        'gif': gifName,
+        'assetPath': 'assets/images/$gifName.gif',
+      });
       return;
     }
 
@@ -517,7 +537,7 @@ class AppServer {
       if (needsReload) {
         debugPrint(
             '[AppServer] Config cambio (merchant/product) -> emitiendo reloadProduct');
-        UiCommandBus.emit(UiCommand.reloadProduct);
+        UiCommandBus.emit(const ReloadProduct());
       }
 
       final messages = <String>[];
@@ -672,7 +692,7 @@ class AppServer {
       if (reload) {
         debugPrint(
             '[AppServer] Filtros actualizados -> emitiendo reloadProduct');
-        UiCommandBus.emit(UiCommand.reloadProduct);
+        UiCommandBus.emit(const ReloadProduct());
       }
 
       _sendJson(response, 200, {
@@ -691,12 +711,45 @@ class AppServer {
   /// POST /products/reload — Fuerza la recarga de productos desde la API.
   Future<void> _handlePostProductsReload(HttpResponse response) async {
     debugPrint('[AppServer] Recarga de productos solicitada');
-    UiCommandBus.emit(UiCommand.reloadProduct);
+    UiCommandBus.emit(const ReloadProduct());
     _sendJson(response, 200, {
       'success': true,
       'message':
           'Recarga de productos disparada. Los productos se actualizaran en breve.',
     });
+  }
+
+  /// POST /attract/set — Cambia el GIF de atraccion y lo muestra inmediatamente.
+  ///
+  /// Body esperado:
+  /// ```json
+  /// { "gif": "attract" }
+  /// ```
+  ///
+  /// El nombre se mapea a `assets/images/{gif}.gif`.
+  /// Si no se envia, se usa `"attract"` por defecto.
+  Future<void> _handleSetAttractGif(
+      HttpRequest request, HttpResponse response) async {
+    try {
+      final body = await utf8.decoder.bind(request).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      print('[AppServer] Cambio de GIF de atraccion solicitado: $json');
+      final gifName = json['gif'] as String? ?? 'attract';
+      final assetPath = 'assets/images/$gifName.gif';
+      print('[AppServer] Cambiando GIF de atraccion a: $gifName ($assetPath)');
+      UiCommandBus.currentGifName = gifName;
+      UiCommandBus.emit(ShowAttract(gifAsset: assetPath));
+
+      _sendJson(response, 200, {
+        'success': true,
+        'gif': gifName,
+        'assetPath': assetPath,
+        'message': 'GIF cambiado a "$gifName" y mostrando atraccion',
+      });
+    } catch (e) {
+      _sendJson(
+          response, 400, {'success': false, 'message': 'JSON invalido: $e'});
+    }
   }
 
   // -- JSON helper --

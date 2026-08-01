@@ -4,30 +4,55 @@ import 'dart:async';
 ///
 /// Desacopla AppServer (infraestructura) de los Cubits (presentacion)
 /// respetando Clean Architecture.
-enum UiCommand {
-  /// Mostrar video de atraccion (robot cerca de persona).
-  showAttract,
+///
+/// Uso de sealed class en lugar de enum permite transportar datos
+/// (ej: el assetPath del GIF a mostrar).
+sealed class UiCommand {
+  const UiCommand();
+}
 
-  /// Mostrar producto y reproducir saludo (operador pulso saludar).
-  showProduct,
+/// Mostrar video de atraccion (robot cerca de persona).
+///
+/// [gifAsset] permite elegir que GIF se muestra.
+/// Si es null, se usa el GIF por defecto (`assets/images/normal.gif`).
+class ShowAttract extends UiCommand {
+  final String? gifAsset;
+  const ShowAttract({this.gifAsset});
+}
 
-  /// Volver a estado de reposo / espera (persona se alejo).
-  showIdle,
+/// Mostrar producto (sin audio).
+class ShowProduct extends UiCommand {
+  const ShowProduct();
+}
 
-  /// Recargar producto y merchant desde la API (config cambio).
-  reloadProduct,
+/// Volver a estado de reposo / espera (persona se alejo).
+class ShowIdle extends UiCommand {
+  const ShowIdle();
+}
 
-  /// Cancelar pago activo y volver al producto con timeout corto para attract.
-  cancelPayment,
+/// Recargar producto y merchant desde la API (config cambio).
+class ReloadProduct extends UiCommand {
+  const ReloadProduct();
+}
 
-  /// Mostrar producto, reproducir saludo y resetear carrusel al primer elemento.
-  showProductResetCarousel,
+/// Cancelar pago activo y volver al producto con timeout corto para attract.
+class CancelPayment extends UiCommand {
+  const CancelPayment();
+}
 
-  /// Iniciar polling del pago QR del producto visible en home (manual, operador).
-  startPaymentPolling,
+/// Mostrar producto, reproducir saludo y resetear carrusel al primer elemento.
+class ShowProductResetCarousel extends UiCommand {
+  const ShowProductResetCarousel();
+}
 
-  /// Detener el polling del pago QR en home (sin cancelar la orden).
-  stopPaymentPolling,
+/// Iniciar polling del pago QR del producto visible en home (manual, operador).
+class StartPaymentPolling extends UiCommand {
+  const StartPaymentPolling();
+}
+
+/// Detener el polling del pago QR en home (sin cancelar la orden).
+class StopPaymentPolling extends UiCommand {
+  const StopPaymentPolling();
 }
 
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.
@@ -38,4 +63,8 @@ class UiCommandBus {
   static Stream<UiCommand> get stream => _controller.stream;
 
   static void emit(UiCommand cmd) => _controller.add(cmd);
+
+  /// Nombre del GIF actualmente configurado (sin extension ni ruta).
+  /// Se actualiza cada vez que se emite un [ShowAttract] con [ShowAttract.gifAsset].
+  static String currentGifName = 'attract';
 }

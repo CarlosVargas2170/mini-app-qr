@@ -60,38 +60,38 @@ class _HomeViewState extends State<_HomeView> {
     }
     final cubit = context.read<HomeCubit>();
     switch (cmd) {
-      case UiCommand.showAttract:
+      case ShowAttract(:final gifAsset):
         _cancelActivePayment();
         _popPaymentIfOpen();
-        await cubit.showAttract();
+        await cubit.showAttract(gifAsset: gifAsset);
         break;
-      case UiCommand.showProduct:
+      case ShowProduct():
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showProduct();
         break;
-      case UiCommand.cancelPayment:
+      case CancelPayment():
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showProductWithTimeout(const Duration(seconds: 5));
         break;
-      case UiCommand.showIdle:
+      case ShowIdle():
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showIdle();
         break;
-      case UiCommand.reloadProduct:
+      case ReloadProduct():
         debugPrint('[HomePage] Recargando productos por cambio de config...');
         await cubit.load();
         break;
-      case UiCommand.showProductResetCarousel:
+      case ShowProductResetCarousel():
         _cancelActivePayment();
         _popPaymentIfOpen();
         await cubit.showProductResetCarousel();
         break;
       // Polling manual del QR en home: lo gestiona ProductQrPanelWrapper.
-      case UiCommand.startPaymentPolling:
-      case UiCommand.stopPaymentPolling:
+      case StartPaymentPolling():
+      case StopPaymentPolling():
         break;
     }
   }
@@ -120,7 +120,8 @@ class _HomeViewState extends State<_HomeView> {
               debugPrint(
                   '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
               return switch (state.displayMode) {
-                DisplayMode.attract => const AttractGifPlayer(),
+                DisplayMode.attract =>
+                  AttractGifPlayer(assetPath: state.attractGifAsset),
                 DisplayMode.idle => _buildIdle(),
                 DisplayMode.product => switch (state.status) {
                     HomeStatus.initial || HomeStatus.loading => _buildLoading(),

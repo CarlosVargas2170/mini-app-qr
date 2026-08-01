@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import '../../core/config/app_settings.dart';
 
 /// Modelo simple de producto desde el backend.
 class Product {
@@ -88,19 +87,4 @@ class ProductRemoteDataSource {
     final response = await _dio.get('/merchants/$merchantId');
     return response.data as Map<String, dynamic>;
   }
-}
-
-/// Crea un Dio pre-configurado con el Bearer token de [AppSettings].
-Dio createAuthenticatedDio() {
-  final settings = AppSettings();
-  final dio = Dio(BaseOptions(
-    baseUrl: settings.baseUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    headers: {
-      'Authorization': 'Bearer ${settings.bearerToken}',
-      'Content-Type': 'application/json',
-    },
-  ));
-  return dio;
 }
