@@ -733,9 +733,10 @@ class AppServer {
     try {
       final body = await utf8.decoder.bind(request).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
+      print('[AppServer] Cambio de GIF de atraccion solicitado: $json');
       final gifName = json['gif'] as String? ?? 'attract';
       final assetPath = 'assets/images/$gifName.gif';
-
+      print('[AppServer] Cambiando GIF de atraccion a: $gifName ($assetPath)');
       UiCommandBus.currentGifName = gifName;
       UiCommandBus.emit(ShowAttract(gifAsset: assetPath));
 

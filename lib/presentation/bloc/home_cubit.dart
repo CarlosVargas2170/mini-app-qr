@@ -211,9 +211,9 @@ class HomeCubit extends Cubit<HomeState> {
   /// Cambia el GIF de atraccion y forza el modo attract inmediatamente.
   ///
   /// [assetPath] debe ser una ruta de asset valida (ej: `assets/images/coffee.gif`).
-  /// Si es null, se usa el GIF por defecto (`assets/images/attract.gif`).
+  /// Si es null, se usa el GIF por defecto (`assets/images/normal.gif`).
   Future<void> setAttractGif(String? assetPath) async {
-    final gif = assetPath ?? 'assets/images/attract.gif';
+    final gif = assetPath ?? 'assets/images/normal.gif';
     debugPrint('[HomeCubit] setAttractGif($gif) llamado');
     await showAttract(gifAsset: gif);
   }

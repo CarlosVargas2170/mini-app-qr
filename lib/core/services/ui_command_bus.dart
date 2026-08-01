@@ -14,7 +14,7 @@ sealed class UiCommand {
 /// Mostrar video de atraccion (robot cerca de persona).
 ///
 /// [gifAsset] permite elegir que GIF se muestra.
-/// Si es null, se usa el GIF por defecto (`assets/images/attract.gif`).
+/// Si es null, se usa el GIF por defecto (`assets/images/normal.gif`).
 class ShowAttract extends UiCommand {
   final String? gifAsset;
   const ShowAttract({this.gifAsset});

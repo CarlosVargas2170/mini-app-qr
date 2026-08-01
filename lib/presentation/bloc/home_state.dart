@@ -20,7 +20,7 @@ class HomeState extends Equatable {
   final String? errorMessage;
 
   /// Ruta del asset GIF que se muestra en modo [DisplayMode.attract].
-  /// Por defecto `assets/images/attract.gif`.
+  /// Por defecto `assets/images/normal.gif`.
   final String attractGifAsset;
 
   const HomeState({
@@ -32,7 +32,7 @@ class HomeState extends Equatable {
     this.merchantNames = const [],
     this.merchantIds = const [],
     this.errorMessage,
-    this.attractGifAsset = 'assets/images/attract.gif',
+    this.attractGifAsset = 'assets/images/normal.gif',
   });
 
   Product? get currentProduct =>
