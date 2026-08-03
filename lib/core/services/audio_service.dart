@@ -63,6 +63,7 @@ class AudioService {
     bool force = false,
     double volume = 1.0,
     String? displayText,
+    bool showOverlay = true
   }) async {
     // Asegurar que el player esté inicializado
     _init();
@@ -90,8 +91,10 @@ class AudioService {
 
     try {
       debugPrint('[AudioService] Reproduciendo: $assetPath (volume=$volume)');
-      AudioNotificationService.notifyPlaying(assetPath,
-          displayText: displayText);
+
+      if(showOverlay) {
+        AudioNotificationService.notifyPlaying(assetPath,displayText: displayText);
+      }
 
       // Usar el MISMO player, no crear uno nuevo
       await _player.setVolume(volume);

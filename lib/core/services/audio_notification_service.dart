@@ -9,7 +9,8 @@ class AudioNotificationService {
   static Stream<AudioEvent> get onAudioEvent => _controller.stream;
 
   /// Notifica que se está reproduciendo un audio.
-  static void notifyPlaying(String audioName, {String? displayText}) {
+  static void notifyPlaying(String audioName, {String? displayText, bool showOverlay = true}) {
+    if(!showOverlay) return; 
     _controller.add(AudioEvent(
       type: AudioEventType.playing,
       audioName: audioName,
