@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
 import '../../core/services/audio_service.dart';
+import '../../core/services/payment_counter.dart';
+import '../../core/services/payment_polling_status.dart';
 import '../../core/ui/themes/app_colors.dart';
 import '../../presentation/bloc/qr_payment_cubit.dart';
 import '../../presentation/bloc/qr_payment_state.dart';
@@ -84,6 +86,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   void dispose() {
     _countdownTimer?.cancel();
     _successReturnTimer?.cancel();
+    PaymentPollingStatus().setIdle();
     // Solo detener polling: NO emitir cancelled (evita flash de UI cancelada
     // después del éxito al hacer pop / dispose).
     try {
@@ -101,18 +104,24 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       body: SafeArea(
         child: BlocConsumer<QrPaymentCubit, QrPaymentState>(
           listener: (context, state) {
+            _publishToRemoteControl(state);
+
             if (state.status == QrPaymentStatus.success) {
               if (_paymentSucceeded) return;
               _paymentSucceeded = true;
               AudioService.playThanks();
+              PaymentCounter().increment(
+                amount: widget.amount,
+                productId: _productId ?? 0,
+                productName: _productName,
+                merchantId: widget.merchantId,
+              );
               // Volver al GIF automaticamente despues de unos segundos
               _successReturnTimer?.cancel();
               _successReturnTimer = Timer(_successReturnDelay, () {
                 if (!mounted) return;
                 widget.onSuccess?.call();
               });
-            } else if (state.status == QrPaymentStatus.failed) {
-              // El error se muestra visualmente en el builder
             }
           },
           builder: (context, state) {
@@ -184,5 +193,79 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
         ],
       ),
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Remote-control: publica estado al singleton global
+  // ─────────────────────────────────────────────────────────────
+  /// Nombre del producto desde cartItems.
+  String get _productName => widget.cartItems.isNotEmpty
+      ? (widget.cartItems.first['name'] as String?) ?? ''
+      : '';
+
+  /// ID del producto desde menuData (primer producto de la primera categoria).
+  int? get _productId {
+    final menuData = widget.menuData;
+    if (menuData == null) return null;
+    final categories = menuData['categories'] as List?;
+    if (categories == null || categories.isEmpty) return null;
+    final firstCategory = categories.first as Map?;
+    if (firstCategory == null) return null;
+    final products = firstCategory['products'] as List?;
+    if (products == null || products.isEmpty) return null;
+    final firstProduct = products.first as Map?;
+    return firstProduct?['id'] as int?;
+  }
+
+  /// Sincroniza el estado del cubit con [PaymentPollingStatus]
+  /// para que el remote-control refleje el progreso del pago.
+  void _publishToRemoteControl(QrPaymentState state) {
+    final pub = PaymentPollingStatus();
+
+    switch (state.status) {
+      case QrPaymentStatus.initial:
+      case QrPaymentStatus.loading:
+        pub.setWaiting(
+          productId: _productId ?? 0,
+          merchantId: widget.merchantId,
+          orderId: state.orderId,
+          amount: widget.amount,
+          productName: _productName,
+        );
+      case QrPaymentStatus.qrReady:
+        if (state.isPolling) {
+          pub.setPolling(
+            productId: _productId ?? 0,
+            merchantId: widget.merchantId,
+            orderId: state.orderId!,
+            amount: widget.amount,
+            productName: _productName,
+          );
+        } else {
+          pub.setWaiting(
+            productId: _productId ?? 0,
+            merchantId: widget.merchantId,
+            orderId: state.orderId,
+            amount: widget.amount,
+            productName: _productName,
+          );
+        }
+      case QrPaymentStatus.success:
+        pub.setSuccess(
+          productId: _productId,
+          merchantId: widget.merchantId,
+          orderId: state.orderId,
+          amount: widget.amount,
+          productName: _productName,
+        );
+      case QrPaymentStatus.failed:
+        pub.setFailed(
+          productId: _productId,
+          merchantId: widget.merchantId,
+          orderId: state.orderId,
+        );
+      case QrPaymentStatus.cancelled:
+        pub.setIdle();
+    }
   }
 }
