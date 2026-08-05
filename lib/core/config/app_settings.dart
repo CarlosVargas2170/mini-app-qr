@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'config_storage.dart';
 import 'product_filter_config.dart';
@@ -27,16 +28,9 @@ class AppSettings {
     filterMode: 'all',
   );
 
-  /// Compatibilidad temporal: retorna el primer merchantId de la lista.
-  /// @deprecated Usar merchantIds directamente cuando sea posible.
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
-
-  /// Nombre del cliente usado al crear órdenes.
-  // static String customerName = 'Mesero-test-prod';
-  static String customerName = 'Robot Mesero';
-
-  /// Tiempo en minutos antes de que un QR cacheado se considere expirado.
-  static int qrExpirationMinutes = 3;
+  static String customerName = dotenv.env['NAME_MESERO'] ?? 'Robot Mesero';
+  static int qrExpirationMinutes = int.tryParse(dotenv.env['QR_EXPIRATION_MINUTES'] ?? '') ?? 3;
 
   bool get isConfigured =>
       baseUrl.isNotEmpty &&
@@ -49,25 +43,33 @@ class AppSettings {
     try {
       final saved = await ConfigStorage.read();
       if (saved != null) {
-        baseUrl = saved['baseUrl'] as String? ?? _defaults.baseUrl;
-        bearerToken = saved['bearerToken'] as String? ?? _defaults.bearerToken;
+        baseUrl = dotenv.env['BASE_URL'] ?? _defaults.baseUrl;
+        bearerToken = dotenv.env['BEARER_TOKEN'] ?? _defaults.bearerToken;
+        // baseUrl = saved['baseUrl'] as String? ?? _defaults.baseUrl;
+        // bearerToken = saved['bearerToken'] as String? ?? _defaults.bearerToken;
 
         // Cargar merchantIds (soporta tanto lista como valor único por compatibilidad)
-        final savedMerchantIds = saved['merchantIds'];
-        if (savedMerchantIds is List) {
-          merchantIds =
-              savedMerchantIds.map((e) => (e as num).toInt()).toList();
-        } else if (savedMerchantIds is num) {
-          // Compatibilidad con configuración antigua (un solo merchantId)
-          merchantIds = [savedMerchantIds.toInt()];
-        } else {
-          merchantIds = _defaults.merchantIds;
-        }
+        // final savedMerchantIds = saved['merchantIds'];
+        // if (savedMerchantIds is List) {
+        //   merchantIds =
+        //       savedMerchantIds.map((e) => (e as num).toInt()).toList();
+        // } else if (savedMerchantIds is num) {
+        //   // Compatibilidad con configuración antigua (un solo merchantId)
+        //   merchantIds = [savedMerchantIds.toInt()];
+        // } else {
+        //   merchantIds = _defaults.merchantIds;
+        // }
 
-        productId =
-            (saved['productId'] as num?)?.toInt() ?? _defaults.productId;
-        baseUrlVpn = saved['baseUrlVpn'] as String? ?? _defaults.baseUrlVpn;
-        portVpn = (saved['portVpn'] as num?)?.toInt() ?? _defaults.portVpn;
+        merchantIds = dotenv.env['MERCHANT_IDS']
+            ?.split(',')
+            .map((e) => int.parse(e.trim()))
+            .toList() ??
+        _defaults.merchantIds;
+
+        productId = int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _defaults.productId;
+        // baseUrlVpn = saved['baseUrlVpn'] as String? ?? _defaults.baseUrlVpn;
+        baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _defaults.baseUrlVpn;
+        portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _defaults.portVpn;
 
         // Cargar filtro de productos si existe
         if (saved['filterConfig'] is Map) {
@@ -87,18 +89,21 @@ class AppSettings {
       }
     }
 
-    // Fallback por defecto
     applyFallback();
   }
 
-  /// Aplica los valores por defecto.
   void applyFallback() {
-    baseUrl = _defaults.baseUrl;
-    bearerToken = _defaults.bearerToken;
-    merchantIds = _defaults.merchantIds;
-    productId = _defaults.productId;
-    baseUrlVpn = _defaults.baseUrlVpn;
-    portVpn = _defaults.portVpn;
+    baseUrl = dotenv.env['BASE_URL'] ?? _defaults.baseUrl;
+    bearerToken = dotenv.env['BEARER_TOKEN'] ?? _defaults.bearerToken;
+    merchantIds = dotenv.env['MERCHANT_IDS']
+            ?.split(',')
+            .map((e) => int.parse(e.trim()))
+            .toList() ??
+        _defaults.merchantIds;
+    productId =
+        int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _defaults.productId;
+    baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _defaults.baseUrlVpn;
+    portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _defaults.portVpn;
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
@@ -114,17 +119,11 @@ class AppSettings {
 
 /// Valores por defecto cuando no hay config guardada.
 abstract final class _defaults {
-  // static const String baseUrl = 'https://api-totem.sandbox.nexuspatiotech.com/api';
   static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
-  static const String bearerToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIwLCJlbWFpbCI6ImhlY3ZhbkBnbWFpbC5jb20iLCJyb2xlIjoic3VwZXItYWRtaW4iLCJ0eXBlIjoidXNlciIsImlhdCI6MTc4NTUzMDA2NCwiZXhwIjoxODE3MDY2MDY0fQ.pO_jWIuOz_ck5v14RjpRi822ORmegCpx_IdG0kt-ZUI';
-      // 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MjQxMDQ5MCwiZXhwIjoxODEzOTQ2NDkwfQ.M9fdig91KYqiGBTrrFMYfYjsRf5ZhmvICxT_q1yeDLs';
-  // static const String bearerToken =
-  //     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJUT1RFTTAxNiIsImxpY2Vuc2VLZXkiOiJUT1RFTTAwMSIsInR5cGUiOiJ0b3RlbSIsImlhdCI6MTc4MTg3NzYwOCwiZXhwIjoxNzgyNDgyNDA4fQ.Xo3OUCmC0dxNM4MWBzltcYBBYzRHVQ3C98ZadFgI7Gc';
-  // static const List<int> merchantIds = [53];
+  static const String bearerToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIwLCJlbWFpbCI6ImhlY3ZhbkBnbWFpbC5jb20iLCJyb2xlIjoic3VwZXItYWRtaW4iLCJ0eXBlIjoidXNlciIsImlhdCI6MTc4NTUzMDA2NCwiZXhwIjoxODE3MDY2MDY0fQ.pO_jWIuOz_ck5v14RjpRi822ORmegCpx_IdG0kt-ZUI';
   static const List<int> merchantIds = [53];
   static const int productId = 457969;
-  // static const String baseUrlVpn = "10.13.13.17";
-  // static const String baseUrlVpn = "192.168.21.71";
   static const String baseUrlVpn = "100.99.244.72";
   static const int portVpn = 5050;
 }
