@@ -523,15 +523,8 @@ class AppServer {
         needsRestart = true; // Cambiar puerto del servidor requiere reinicio
       }
 
-      await ConfigStorage.write({
-        'baseUrl': settings.baseUrl,
-        'bearerToken': settings.bearerToken,
-        'merchantIds': settings.merchantIds,
-        'productId': settings.productId,
-        'baseUrlVpn': settings.baseUrlVpn,
-        'portVpn': settings.portVpn,
-        'filterConfig': settings.filterConfig.toJson(),
-      });
+      // La configuracion de conexion se toma del archivo .env.
+      // No se persiste en disco.
 
       // Recargar producto en caliente si cambio merchantId o productId
       if (needsReload) {
@@ -677,16 +670,8 @@ class AppServer {
         changes.add('Filtros reseteados');
       }
 
-      // Persistir
-      await ConfigStorage.write({
-        'baseUrl': settings.baseUrl,
-        'bearerToken': settings.bearerToken,
-        'merchantIds': settings.merchantIds,
-        'productId': settings.productId,
-        'baseUrlVpn': settings.baseUrlVpn,
-        'portVpn': settings.portVpn,
-        'filterConfig': filter.toJson(),
-      });
+      // Los filtros viven solo en memoria (no se persisten en disco).
+      // Al reiniciar la app, todos los productos vuelven a ser visibles.
 
       final reload = json['reload'] == true;
       if (reload) {
