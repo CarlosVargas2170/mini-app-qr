@@ -76,6 +76,7 @@ class ServiceLocator {
         getPaymentStatus: getPaymentStatusUseCase,
         updateOrder: updateOrderUseCase,
         completeOrder: completeOrderUseCase,
+        getProduct: getProductUseCase,
       );
 }
 

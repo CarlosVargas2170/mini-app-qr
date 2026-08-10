@@ -15,6 +15,9 @@ class HomeCubit extends Cubit<HomeState> {
 
   Timer? _inactivityTimer;
 
+  /// Timer del polling automático de productos.
+  Timer? _pollingTimer;
+
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
   static const _inactivityTimeout = Duration(seconds: 300);
 
@@ -33,6 +36,14 @@ class HomeCubit extends Cubit<HomeState> {
 
     try {
       final result = await _loadWithRetry();
+
+      // Poblar cache global para que AppServer pueda leer los productos
+      final cache = ProductCache();
+      cache.allProducts = List.unmodifiable(result.products);
+      cache.merchantNames = List.unmodifiable(result.merchantNames);
+      cache.loadedMerchantIds = List.unmodifiable(result.merchantIds);
+      debugPrint(
+          '[HomeCubit] ProductCache actualizado: ${result.products.length} productos de ${result.merchantIds.length} merchants');
 
       // Aplicar filtro de visibilidad antes de emitir el estado
       final settings = AppSettings();
@@ -55,6 +66,9 @@ class HomeCubit extends Cubit<HomeState> {
       ));
       debugPrint(
           '[HomeCubit] Estado emitido: loaded + attract (${filteredProducts.length} productos de ${result.merchantIds.length} merchants)');
+
+      // Iniciar polling automático después de la carga inicial exitosa.
+      _startProductPolling();
     } catch (e, stack) {
       debugPrint('[HomeCubit] load FAILED (incluyendo retry): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
@@ -133,14 +147,6 @@ class HomeCubit extends Cubit<HomeState> {
         // merchantName principal: combina los nombres de todos los merchants
         final primaryName = merchantNames.join(' | ');
 
-        // Poblar cache global para que AppServer pueda leer los productos
-        final cache = ProductCache();
-        cache.allProducts = List.unmodifiable(allProducts);
-        cache.merchantNames = List.unmodifiable(merchantNames);
-        cache.loadedMerchantIds = List.unmodifiable(loadedMerchantIds);
-        debugPrint(
-            '[HomeCubit] ProductCache actualizado: ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
-
         return (
           products: allProducts,
           merchantName: primaryName,
@@ -175,6 +181,154 @@ class HomeCubit extends Cubit<HomeState> {
       return null; // Falla gracefully: un merchant caido no detiene a los demas
     }
   }
+
+  // ─── Polling automático de productos ───────────────────────────────────────
+
+  /// Inicia el timer de polling automático de productos.
+  ///
+  /// El intervalo se lee de [AppSettings.productPollingIntervalSeconds].
+  /// Si es <= 0, el polling se deshabilita.
+  /// Si ya hay un timer corriendo, lo cancela y crea uno nuevo.
+  void _startProductPolling() {
+    _cancelPollingTimer();
+
+    final intervalSeconds = AppSettings().productPollingIntervalSeconds;
+    if (intervalSeconds <= 0) {
+      debugPrint(
+          '[HomeCubit] Polling de productos DESHABILITADO (intervalo=$intervalSeconds)');
+      return;
+    }
+
+    final duration = Duration(seconds: intervalSeconds);
+    debugPrint(
+        '[HomeCubit] Polling de productos iniciado (cada ${intervalSeconds}s)');
+    _pollingTimer = Timer.periodic(duration, (_) => _pollProducts());
+  }
+
+  /// Ejecuta un ciclo de polling: obtiene productos frescos de la API
+  /// y actualiza el estado silenciosamente si hay cambios.
+  ///
+  /// No interrumpe al usuario:
+  /// - Mantiene el [displayMode] actual.
+  /// - Recalcula [currentIndex] si el producto activo sigue existiendo.
+  /// - Resetea [currentIndex] a 0 si el producto activo fue eliminado.
+  /// - Si no hay cambios, no emite estado (ahorra rebuilds).
+  Future<void> _pollProducts() async {
+    if (isClosed) return;
+
+    debugPrint('[HomeCubit] 🔄 Iniciando ciclo de polling...');
+    try {
+      final result = await _loadWithRetry();
+
+      // Aplicar filtro de visibilidad
+      final settings = AppSettings();
+      final filter = settings.filterConfig;
+      final freshProducts = result.products
+          .where((p) => filter.isProductVisible(p.id, p.merchantId))
+          .toList();
+
+      // Comparar con los productos actuales para detectar cambios
+      final currentProducts = state.products;
+      if (_listsAreIdentical(currentProducts, freshProducts)) {
+        // Sin cambios: no emitir estado (evita rebuilds innecesarios)
+        debugPrint('[HomeCubit] Polling: sin cambios detectados');
+        return;
+      }
+
+      // ── Hay cambios: actualizar cache y recalcular currentIndex ──
+      debugPrint(
+          '[HomeCubit] Polling: cambios detectados (${currentProducts.length} → ${freshProducts.length} productos)');
+
+      // Actualizar cache global con los productos frescos
+      final cache = ProductCache();
+      cache.allProducts = List.unmodifiable(result.products);
+      cache.merchantNames = List.unmodifiable(result.merchantNames);
+      cache.loadedMerchantIds = List.unmodifiable(result.merchantIds);
+      debugPrint(
+          '[HomeCubit] ProductCache actualizado: ${result.products.length} productos de ${result.merchantIds.length} merchants');
+
+      var newIndex = 0;
+      final previousProduct = state.currentProduct;
+      if (previousProduct != null) {
+        // Buscar el producto anterior en la nueva lista por ID
+        final foundIndex =
+            freshProducts.indexWhere((p) => p.id == previousProduct.id);
+        newIndex = foundIndex >= 0 ? foundIndex : 0;
+        if (foundIndex < 0) {
+          debugPrint(
+              '[HomeCubit] ⚠️ Producto activo "${previousProduct.name}" (ID: ${previousProduct.id}) ya no está visible. Índice reseteado a 0.');
+        } else if (foundIndex != state.currentIndex) {
+          debugPrint(
+              '[HomeCubit] Producto activo "${previousProduct.name}" movido de índice ${state.currentIndex} → $foundIndex.');
+        }
+      }
+
+      // Emitir nuevo estado sin cambiar displayMode
+      emit(state.copyWith(
+        status: HomeStatus.loaded,
+        products: freshProducts,
+        currentIndex: newIndex,
+        merchantName: result.merchantName,
+        merchantNames: result.merchantNames,
+        merchantIds: result.merchantIds,
+        lastPolledAt: DateTime.now(),
+      ));
+
+      debugPrint(
+          '[HomeCubit] Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
+    } catch (e, stack) {
+      // Fallo silencioso: no interrumpir al usuario, solo loguear.
+      debugPrint('[HomeCubit] Polling falló (red caída?): $e');
+      debugPrint('[HomeCubit] StackTrace: $stack');
+      // El estado actual se mantiene intacto.
+    }
+  }
+
+  /// Compara dos listas de productos para determinar si son idénticas.
+  ///
+  /// Compara: orden, IDs, y campos relevantes (nombre, precio, oldPrice,
+  /// descripción, urlImage, merchantId).
+  bool _listsAreIdentical(List<Product> a, List<Product> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+      if (a[i].name != b[i].name) return false;
+      if (a[i].price != b[i].price) return false;
+      if (a[i].oldPrice != b[i].oldPrice) return false;
+      if (a[i].description != b[i].description) return false;
+      if (a[i].urlImage != b[i].urlImage) return false;
+      if (a[i].merchantId != b[i].merchantId) return false;
+    }
+    return true;
+  }
+
+  /// Detiene el polling automático de productos.
+  ///
+  /// Útil cuando se necesita pausar temporalmente (ej: durante mantenimiento)
+  /// o cuando se cambia de merchant y se quiere evitar carreras.
+  void stopPolling() {
+    debugPrint('[HomeCubit] stopPolling() llamado');
+    _cancelPollingTimer();
+  }
+
+  /// Reinicia el polling de productos con el intervalo actual.
+  ///
+  /// Cancela cualquier timer existente y crea uno nuevo.
+  /// Útil después de un [stopPolling] o un cambio de configuración.
+  void restartPolling() {
+    debugPrint('[HomeCubit] restartPolling() llamado');
+    _startProductPolling();
+  }
+
+  void _cancelPollingTimer() {
+    if (_pollingTimer != null) {
+      debugPrint('[HomeCubit] Polling de productos detenido');
+      _pollingTimer?.cancel();
+      _pollingTimer = null;
+    }
+  }
+
+  // ─── Fin polling ───────────────────────────────────────────────────────────
 
   /// Actualiza el indice del producto seleccionado en el carrusel.
   /// Reinicia el timer de inactividad cada vez que el usuario hace swipe.
@@ -334,6 +488,7 @@ class HomeCubit extends Cubit<HomeState> {
   @override
   Future<void> close() {
     _cancelInactivityTimer();
+    _cancelPollingTimer();
     return super.close();
   }
 }

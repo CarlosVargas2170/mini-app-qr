@@ -27,6 +27,10 @@ class AppSettings {
     filterMode: 'all',
   );
 
+  /// Intervalo en segundos del polling automático de productos.
+  /// 0 = deshabilitado. Por defecto: 30 segundos.
+  int productPollingIntervalSeconds = 30;
+
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
   static String customerName = dotenv.env['NAME_MESERO'] ?? 'Robot Mesero';
   static int qrExpirationMinutes =
@@ -56,6 +60,9 @@ class AppSettings {
         int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _defaults.productId;
     baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _defaults.baseUrlVpn;
     portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _defaults.portVpn;
+    productPollingIntervalSeconds =
+        int.tryParse(dotenv.env['PRODUCT_POLLING_INTERVAL_SECONDS'] ?? '') ??
+            _defaults.productPollingIntervalSeconds;
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
@@ -78,4 +85,5 @@ abstract final class _defaults {
   static const int productId = 457969;
   static const String baseUrlVpn = "100.99.244.72";
   static const int portVpn = 5050;
+  static const int productPollingIntervalSeconds = 30;
 }

@@ -55,6 +55,21 @@ class StopPaymentPolling extends UiCommand {
   const StopPaymentPolling();
 }
 
+/// Iniciar el polling automático de productos (segundo plano).
+class StartProductPolling extends UiCommand {
+  const StartProductPolling();
+}
+
+/// Detener el polling automático de productos.
+class StopProductPolling extends UiCommand {
+  const StopProductPolling();
+}
+
+/// Consultar el estado actual del polling de productos.
+class GetProductPollingStatus extends UiCommand {
+  const GetProductPollingStatus();
+}
+
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.
 class UiCommandBus {
   static final StreamController<UiCommand> _controller =

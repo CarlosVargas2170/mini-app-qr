@@ -375,6 +375,22 @@ class AppServer {
       return;
     }
 
+    // --- Product polling endpoints ---
+    if (path == '/products/polling/start' && method == 'POST') {
+      await _handleStartProductPolling(response);
+      return;
+    }
+
+    if (path == '/products/polling/stop' && method == 'POST') {
+      await _handleStopProductPolling(response);
+      return;
+    }
+
+    if (path == '/products/polling/status' && method == 'GET') {
+      await _handleGetProductPollingStatus(response);
+      return;
+    }
+
     // --- Attract GIF endpoints ---
     if (path == '/attract/set' && method == 'POST') {
       await _handleSetAttractGif(request, response);
@@ -701,6 +717,38 @@ class AppServer {
       'success': true,
       'message':
           'Recarga de productos disparada. Los productos se actualizaran en breve.',
+    });
+  }
+
+  /// POST /products/polling/start — Activa el polling automático de productos.
+  Future<void> _handleStartProductPolling(HttpResponse response) async {
+    debugPrint('[AppServer] Activando polling automático de productos');
+    UiCommandBus.emit(const StartProductPolling());
+    _sendJson(response, 200, {
+      'success': true,
+      'message': 'Polling de productos activado.',
+    });
+  }
+
+  /// POST /products/polling/stop — Detiene el polling automático de productos.
+  Future<void> _handleStopProductPolling(HttpResponse response) async {
+    debugPrint('[AppServer] Deteniendo polling automático de productos');
+    UiCommandBus.emit(const StopProductPolling());
+    _sendJson(response, 200, {
+      'success': true,
+      'message': 'Polling de productos detenido.',
+    });
+  }
+
+  /// GET /products/polling/status — Retorna el estado actual del polling de productos.
+  Future<void> _handleGetProductPollingStatus(HttpResponse response) async {
+    final settings = AppSettings();
+    _sendJson(response, 200, {
+      'success': true,
+      'data': {
+        'enabled': settings.productPollingIntervalSeconds > 0,
+        'intervalSeconds': settings.productPollingIntervalSeconds,
+      },
     });
   }
 

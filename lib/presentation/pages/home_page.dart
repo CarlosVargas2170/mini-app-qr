@@ -88,6 +88,16 @@ class _HomeViewState extends State<_HomeView> {
         _popPaymentIfOpen();
         await cubit.showProductResetCarousel();
         break;
+      // ── Product polling ──
+      case StartProductPolling():
+        cubit.restartPolling();
+        break;
+      case StopProductPolling():
+        cubit.stopPolling();
+        break;
+      case GetProductPollingStatus():
+        // No-op: el estado se consulta via HTTP (GET /products/polling/status)
+        break;
       // Polling manual del QR: lo gestiona QrPaymentPage al navegar.
       case StartPaymentPolling():
       case StopPaymentPolling():
@@ -373,6 +383,7 @@ class _HomeViewState extends State<_HomeView> {
           value: cubit,
           child: QrPaymentPage(
             merchantId: p.merchantId,
+            productId: p.id,
             amount: p.price,
             cartItems: [
               {

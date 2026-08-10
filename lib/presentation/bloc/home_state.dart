@@ -19,6 +19,10 @@ class HomeState extends Equatable {
   final List<int> merchantIds;
   final String? errorMessage;
 
+  /// Marca de tiempo del último polling exitoso de productos.
+  /// `null` si nunca se ha ejecutado el polling.
+  final DateTime? lastPolledAt;
+
   /// Ruta del asset GIF que se muestra en modo [DisplayMode.attract].
   /// Por defecto `assets/images/normal.gif`.
   final String attractGifAsset;
@@ -32,6 +36,7 @@ class HomeState extends Equatable {
     this.merchantNames = const [],
     this.merchantIds = const [],
     this.errorMessage,
+    this.lastPolledAt,
     this.attractGifAsset = 'assets/images/normal.gif',
   });
 
@@ -56,6 +61,7 @@ class HomeState extends Equatable {
     List<String>? merchantNames,
     List<int>? merchantIds,
     String? errorMessage,
+    DateTime? lastPolledAt,
     String? attractGifAsset,
   }) {
     return HomeState(
@@ -67,6 +73,7 @@ class HomeState extends Equatable {
       merchantNames: merchantNames ?? this.merchantNames,
       merchantIds: merchantIds ?? this.merchantIds,
       errorMessage: errorMessage ?? this.errorMessage,
+      lastPolledAt: lastPolledAt ?? this.lastPolledAt,
       attractGifAsset: attractGifAsset ?? this.attractGifAsset,
     );
   }
@@ -81,6 +88,7 @@ class HomeState extends Equatable {
         merchantNames,
         merchantIds,
         errorMessage,
+        lastPolledAt,
         attractGifAsset,
       ];
 }

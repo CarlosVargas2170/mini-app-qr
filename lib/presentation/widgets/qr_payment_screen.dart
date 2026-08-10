@@ -15,6 +15,7 @@ import 'qr_display_widget.dart';
 /// - Estados de exito / error
 class QrPaymentScreen extends StatefulWidget {
   final int merchantId;
+  final int productId;
   final double amount;
   final String customerName;
   final String phoneNumber;
@@ -35,6 +36,7 @@ class QrPaymentScreen extends StatefulWidget {
   const QrPaymentScreen({
     super.key,
     required this.merchantId,
+    required this.productId,
     required this.amount,
     required this.customerName,
     this.phoneNumber = '',
@@ -73,6 +75,7 @@ class _QrPaymentScreenState extends State<QrPaymentScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<QrPaymentCubit>().startQrPayment(
             merchantId: widget.merchantId,
+            productId: widget.productId,
             amount: widget.amount,
             customerName: widget.customerName,
             phoneNumber: widget.phoneNumber,

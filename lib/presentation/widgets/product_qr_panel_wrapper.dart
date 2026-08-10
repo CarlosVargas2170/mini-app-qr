@@ -174,6 +174,7 @@ class _ProductQrPanelWrapperState extends State<ProductQrPanelWrapper> {
       _cubit!
           .startQrPayment(
         merchantId: widget.merchantId,
+        productId: widget.productId,
         amount: widget.price,
         customerName: AppSettings.customerName,
         phoneNumber: '',
