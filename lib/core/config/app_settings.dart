@@ -16,6 +16,8 @@ class AppSettings {
 
   String baseUrl = '';
   String bearerToken = '';
+  String ecosystemBaseUrl = '';
+  String ecosystemBearerToken = '';
   List<int> merchantIds = [];
   int productId = 0;
   bool enableImageCache = true;
@@ -52,6 +54,10 @@ class AppSettings {
   void applyFallback() {
     baseUrl = dotenv.env['BASE_URL'] ?? _defaults.baseUrl;
     bearerToken = dotenv.env['BEARER_TOKEN'] ?? _defaults.bearerToken;
+    ecosystemBaseUrl =
+        dotenv.env['ECOSYSTEM_BASE_URL'] ?? _defaults.ecosystemBaseUrl;
+    ecosystemBearerToken =
+        dotenv.env['ECOSYSTEM_BEARER_TOKEN'] ?? _defaults.ecosystemBearerToken;
     merchantIds = dotenv.env['MERCHANT_IDS']
             ?.split(',')
             .map((e) => int.parse(e.trim()))
@@ -80,8 +86,10 @@ class AppSettings {
 /// Valores por defecto cuando no hay config guardada.
 abstract final class _defaults {
   static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
-  static const String bearerToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIwLCJlbWFpbCI6ImhlY3ZhbkBnbWFpbC5jb20iLCJyb2xlIjoic3VwZXItYWRtaW4iLCJ0eXBlIjoidXNlciIsImlhdCI6MTc4NTUzMDA2NCwiZXhwIjoxODE3MDY2MDY0fQ.pO_jWIuOz_ck5v14RjpRi822ORmegCpx_IdG0kt-ZUI';
+  static const String bearerToken = '';
+  static const String ecosystemBaseUrl =
+      'https://api-merchant.nexuspatiotech.com';
+  static const String ecosystemBearerToken = '';
   static const List<int> merchantIds = [53];
   static const int productId = 457969;
   static const String baseUrlVpn = "100.99.244.72";
