@@ -89,11 +89,8 @@ class _HomeViewState extends State<_HomeView> {
         await cubit.showProductResetCarousel();
         break;
       // ── Product polling ──
-      case StartProductPolling():
-        cubit.restartPolling();
-        break;
-      case StopProductPolling():
-        cubit.stopPolling();
+      case ForceProductPoll():
+        await cubit.forcePoll();
         break;
       case GetProductPollingStatus():
         // No-op: el estado se consulta via HTTP (GET /products/polling/status)

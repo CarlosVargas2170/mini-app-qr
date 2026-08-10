@@ -55,14 +55,9 @@ class StopPaymentPolling extends UiCommand {
   const StopPaymentPolling();
 }
 
-/// Iniciar el polling automático de productos (segundo plano).
-class StartProductPolling extends UiCommand {
-  const StartProductPolling();
-}
-
-/// Detener el polling automático de productos.
-class StopProductPolling extends UiCommand {
-  const StopProductPolling();
+/// Forzar un poll de productos incondicional (ignora el umbral de staleness).
+class ForceProductPoll extends UiCommand {
+  const ForceProductPoll();
 }
 
 /// Consultar el estado actual del polling de productos.

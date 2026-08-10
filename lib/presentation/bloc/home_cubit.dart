@@ -15,8 +15,9 @@ class HomeCubit extends Cubit<HomeState> {
 
   Timer? _inactivityTimer;
 
-  /// Timer del polling automático de productos.
-  Timer? _pollingTimer;
+  /// Timestamp del último poll exitoso.
+  /// Se usa para evitar polls demasiado frecuentes (umbral configurable).
+  DateTime? _lastPollTimestamp;
 
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
   static const _inactivityTimeout = Duration(seconds: 300);
@@ -67,8 +68,8 @@ class HomeCubit extends Cubit<HomeState> {
       debugPrint(
           '[HomeCubit] Estado emitido: loaded + attract (${filteredProducts.length} productos de ${result.merchantIds.length} merchants)');
 
-      // Iniciar polling automático después de la carga inicial exitosa.
-      _startProductPolling();
+      // Marcar timestamp del último poll exitoso.
+      _lastPollTimestamp = DateTime.now();
     } catch (e, stack) {
       debugPrint('[HomeCubit] load FAILED (incluyendo retry): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
@@ -182,27 +183,48 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  // ─── Polling automático de productos ───────────────────────────────────────
+  // ─── Polling on-demand ─────────────────────────────────────────────────────
 
-  /// Inicia el timer de polling automático de productos.
+  /// Verifica si los datos están stale y ejecuta un poll si es necesario.
   ///
-  /// El intervalo se lee de [AppSettings.productPollingIntervalSeconds].
-  /// Si es <= 0, el polling se deshabilita.
-  /// Si ya hay un timer corriendo, lo cancela y crea uno nuevo.
-  void _startProductPolling() {
-    _cancelPollingTimer();
-
-    final intervalSeconds = AppSettings().productPollingIntervalSeconds;
-    if (intervalSeconds <= 0) {
+  /// Se llama cada vez que se va a mostrar el carrusel de productos.
+  /// Si el último poll fue hace menos de [AppSettings.productPollingStaleSeconds]
+  /// segundos, omite el poll y usa los datos actuales.
+  Future<void> _pollIfStale() async {
+    final staleSeconds = AppSettings().productPollingStaleSeconds;
+    if (staleSeconds <= 0) {
       debugPrint(
-          '[HomeCubit] Polling de productos DESHABILITADO (intervalo=$intervalSeconds)');
+          '[HomeCubit] Polling on-demand DESHABILITADO (stale=$staleSeconds)');
       return;
     }
 
-    final duration = Duration(seconds: intervalSeconds);
-    debugPrint(
-        '[HomeCubit] Polling de productos iniciado (cada ${intervalSeconds}s)');
-    _pollingTimer = Timer.periodic(duration, (_) => _pollProducts());
+    final staleThreshold = Duration(seconds: staleSeconds);
+
+    if (_lastPollTimestamp == null) {
+      // Nunca se ha hecho poll (ej: primer showProduct tras load fallido)
+      debugPrint('[HomeCubit] Sin timestamp previo → forzando poll');
+      await _pollProducts();
+      return;
+    }
+
+    final elapsed = DateTime.now().difference(_lastPollTimestamp!);
+    if (elapsed >= staleThreshold) {
+      debugPrint(
+          '[HomeCubit] Datos stale (${elapsed.inSeconds}s >= ${staleSeconds}s) → ejecutando poll');
+      await _pollProducts();
+    } else {
+      debugPrint(
+          '[HomeCubit] Datos frescos (${elapsed.inSeconds}s < ${staleSeconds}s) → omitiendo poll');
+    }
+  }
+
+  /// Fuerza un poll incondicional (ignora el umbral de staleness).
+  ///
+  /// Útil para comandos de recarga manual (remote-control, /products/reload).
+  Future<void> forcePoll() async {
+    debugPrint('[HomeCubit] forcePoll() → forzando poll incondicional');
+    _lastPollTimestamp = null; // Anular timestamp para forzar
+    await _pollProducts();
   }
 
   /// Ejecuta un ciclo de polling: obtiene productos frescos de la API
@@ -230,14 +252,15 @@ class HomeCubit extends Cubit<HomeState> {
       // Comparar con los productos actuales para detectar cambios
       final currentProducts = state.products;
       if (_listsAreIdentical(currentProducts, freshProducts)) {
-        // Sin cambios: no emitir estado (evita rebuilds innecesarios)
-        debugPrint('[HomeCubit] Polling: sin cambios detectados');
+        // Sin cambios: actualizar timestamp pero no emitir estado
+        debugPrint('[HomeCubit] ✅ Polling: sin cambios detectados');
+        _lastPollTimestamp = DateTime.now();
         return;
       }
 
       // ── Hay cambios: actualizar cache y recalcular currentIndex ──
       debugPrint(
-          '[HomeCubit] Polling: cambios detectados (${currentProducts.length} → ${freshProducts.length} productos)');
+          '[HomeCubit] 🔃 Polling: cambios detectados (${currentProducts.length} → ${freshProducts.length} productos)');
 
       // Actualizar cache global con los productos frescos
       final cache = ProductCache();
@@ -263,6 +286,9 @@ class HomeCubit extends Cubit<HomeState> {
         }
       }
 
+      // Marcar timestamp del poll exitoso
+      _lastPollTimestamp = DateTime.now();
+
       // Emitir nuevo estado sin cambiar displayMode
       emit(state.copyWith(
         status: HomeStatus.loaded,
@@ -275,12 +301,12 @@ class HomeCubit extends Cubit<HomeState> {
       ));
 
       debugPrint(
-          '[HomeCubit] Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
+          '[HomeCubit] ✅ Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
     } catch (e, stack) {
       // Fallo silencioso: no interrumpir al usuario, solo loguear.
-      debugPrint('[HomeCubit] Polling falló (red caída?): $e');
+      debugPrint('[HomeCubit] ⚠️ Polling falló (red caída?): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
-      // El estado actual se mantiene intacto.
+      // El estado actual se mantiene intacto. NO actualizar _lastPollTimestamp.
     }
   }
 
@@ -300,32 +326,6 @@ class HomeCubit extends Cubit<HomeState> {
       if (a[i].merchantId != b[i].merchantId) return false;
     }
     return true;
-  }
-
-  /// Detiene el polling automático de productos.
-  ///
-  /// Útil cuando se necesita pausar temporalmente (ej: durante mantenimiento)
-  /// o cuando se cambia de merchant y se quiere evitar carreras.
-  void stopPolling() {
-    debugPrint('[HomeCubit] stopPolling() llamado');
-    _cancelPollingTimer();
-  }
-
-  /// Reinicia el polling de productos con el intervalo actual.
-  ///
-  /// Cancela cualquier timer existente y crea uno nuevo.
-  /// Útil después de un [stopPolling] o un cambio de configuración.
-  void restartPolling() {
-    debugPrint('[HomeCubit] restartPolling() llamado');
-    _startProductPolling();
-  }
-
-  void _cancelPollingTimer() {
-    if (_pollingTimer != null) {
-      debugPrint('[HomeCubit] Polling de productos detenido');
-      _pollingTimer?.cancel();
-      _pollingTimer = null;
-    }
   }
 
   // ─── Fin polling ───────────────────────────────────────────────────────────
@@ -383,6 +383,9 @@ class HomeCubit extends Cubit<HomeState> {
         '[HomeCubit] showProductWithTimeout(${timeout.inSeconds}s) llamado');
     _cancelInactivityTimer();
 
+    // Verificar staleness antes de mostrar productos
+    await _pollIfStale();
+
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(displayMode: DisplayMode.product));
       debugPrint('[HomeCubit] Estado emitido: displayMode=product');
@@ -430,6 +433,9 @@ class HomeCubit extends Cubit<HomeState> {
     debugPrint(
         '[HomeCubit] showProductResetCarousel(${timeout.inSeconds}s) llamado');
     _cancelInactivityTimer();
+
+    // Verificar staleness antes de mostrar productos
+    await _pollIfStale();
 
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(
@@ -488,7 +494,6 @@ class HomeCubit extends Cubit<HomeState> {
   @override
   Future<void> close() {
     _cancelInactivityTimer();
-    _cancelPollingTimer();
     return super.close();
   }
 }

@@ -376,13 +376,8 @@ class AppServer {
     }
 
     // --- Product polling endpoints ---
-    if (path == '/products/polling/start' && method == 'POST') {
-      await _handleStartProductPolling(response);
-      return;
-    }
-
-    if (path == '/products/polling/stop' && method == 'POST') {
-      await _handleStopProductPolling(response);
+    if (path == '/products/polling/force' && method == 'POST') {
+      await _handleForceProductPoll(response);
       return;
     }
 
@@ -720,34 +715,23 @@ class AppServer {
     });
   }
 
-  /// POST /products/polling/start — Activa el polling automático de productos.
-  Future<void> _handleStartProductPolling(HttpResponse response) async {
-    debugPrint('[AppServer] Activando polling automático de productos');
-    UiCommandBus.emit(const StartProductPolling());
+  /// POST /products/polling/force — Fuerza un poll incondicional de productos.
+  Future<void> _handleForceProductPoll(HttpResponse response) async {
+    debugPrint('[AppServer] Forzando poll de productos');
+    UiCommandBus.emit(const ForceProductPoll());
     _sendJson(response, 200, {
       'success': true,
-      'message': 'Polling de productos activado.',
+      'message': 'Poll de productos forzado.',
     });
   }
 
-  /// POST /products/polling/stop — Detiene el polling automático de productos.
-  Future<void> _handleStopProductPolling(HttpResponse response) async {
-    debugPrint('[AppServer] Deteniendo polling automático de productos');
-    UiCommandBus.emit(const StopProductPolling());
-    _sendJson(response, 200, {
-      'success': true,
-      'message': 'Polling de productos detenido.',
-    });
-  }
-
-  /// GET /products/polling/status — Retorna el estado actual del polling de productos.
+  /// GET /products/polling/status — Retorna la configuración de staleness.
   Future<void> _handleGetProductPollingStatus(HttpResponse response) async {
     final settings = AppSettings();
     _sendJson(response, 200, {
       'success': true,
       'data': {
-        'enabled': settings.productPollingIntervalSeconds > 0,
-        'intervalSeconds': settings.productPollingIntervalSeconds,
+        'staleSeconds': settings.productPollingStaleSeconds,
       },
     });
   }
