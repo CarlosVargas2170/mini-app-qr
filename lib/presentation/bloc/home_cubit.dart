@@ -142,7 +142,7 @@ class HomeCubit extends Cubit<HomeState> {
 
         if (errors.isNotEmpty) {
           debugPrint(
-              '[HomeCubit] ⚠️ ${errors.length} merchants fallaron, pero se cargaron ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
+              '[HomeCubit] [WARN] ${errors.length} merchants fallaron, pero se cargaron ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
         }
 
         // merchantName principal: combina los nombres de todos los merchants
@@ -238,7 +238,7 @@ class HomeCubit extends Cubit<HomeState> {
   Future<void> _pollProducts() async {
     if (isClosed) return;
 
-    debugPrint('[HomeCubit] 🔄 Iniciando ciclo de polling...');
+    debugPrint('[HomeCubit] [POLL] Iniciando ciclo de polling...');
     try {
       final result = await _loadWithRetry();
 
@@ -253,14 +253,20 @@ class HomeCubit extends Cubit<HomeState> {
       final currentProducts = state.products;
       if (_listsAreIdentical(currentProducts, freshProducts)) {
         // Sin cambios: actualizar timestamp pero no emitir estado
-        debugPrint('[HomeCubit] ✅ Polling: sin cambios detectados');
+        debugPrint('[HomeCubit] [OK] Polling: sin cambios detectados');
         _lastPollTimestamp = DateTime.now();
         return;
       }
 
-      // ── Hay cambios: actualizar cache y recalcular currentIndex ──
+      // ── Hay cambios: loguear detalle de lo que cambió ──
       debugPrint(
-          '[HomeCubit] 🔃 Polling: cambios detectados (${currentProducts.length} → ${freshProducts.length} productos)');
+          '[HomeCubit] [CHG] ──────────────────────────────────────────────');
+      debugPrint('[HomeCubit] [CHG] POLLING: CAMBIOS DETECTADOS');
+      debugPrint(
+          '[HomeCubit] [CHG] Antes: ${currentProducts.length} productos → Ahora: ${freshProducts.length} productos');
+      _logProductDiff(currentProducts, freshProducts);
+      debugPrint(
+          '[HomeCubit] [CHG] ──────────────────────────────────────────────');
 
       // Actualizar cache global con los productos frescos
       final cache = ProductCache();
@@ -279,7 +285,7 @@ class HomeCubit extends Cubit<HomeState> {
         newIndex = foundIndex >= 0 ? foundIndex : 0;
         if (foundIndex < 0) {
           debugPrint(
-              '[HomeCubit] ⚠️ Producto activo "${previousProduct.name}" (ID: ${previousProduct.id}) ya no está visible. Índice reseteado a 0.');
+              '[HomeCubit] [WARN] Producto activo "${previousProduct.name}" (ID: ${previousProduct.id}) ya no está visible. Índice reseteado a 0.');
         } else if (foundIndex != state.currentIndex) {
           debugPrint(
               '[HomeCubit] Producto activo "${previousProduct.name}" movido de índice ${state.currentIndex} → $foundIndex.');
@@ -301,10 +307,10 @@ class HomeCubit extends Cubit<HomeState> {
       ));
 
       debugPrint(
-          '[HomeCubit] ✅ Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
+          '[HomeCubit] [OK] Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
     } catch (e, stack) {
       // Fallo silencioso: no interrumpir al usuario, solo loguear.
-      debugPrint('[HomeCubit] ⚠️ Polling falló (red caída?): $e');
+      debugPrint('[HomeCubit] [WARN] Polling falló (red caída?): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
       // El estado actual se mantiene intacto. NO actualizar _lastPollTimestamp.
     }
@@ -326,6 +332,53 @@ class HomeCubit extends Cubit<HomeState> {
       if (a[i].merchantId != b[i].merchantId) return false;
     }
     return true;
+  }
+
+  /// Loguea los cambios entre dos listas de productos para debugging.
+  void _logProductDiff(List<Product> oldList, List<Product> newList) {
+    final oldIds = oldList.map((p) => p.id).toSet();
+    final newIds = newList.map((p) => p.id).toSet();
+
+    // Productos agregados
+    final added = newIds.difference(oldIds);
+    if (added.isNotEmpty) {
+      final addedProducts = newList.where((p) => added.contains(p.id));
+      for (final p in addedProducts) {
+        debugPrint('[HomeCubit]   [ADD] NUEVO:  "${p.name}" (ID: ${p.id}, '
+            'Bs ${p.price}, merchant ${p.merchantId})');
+      }
+    }
+
+    // Productos eliminados/ocultados
+    final removed = oldIds.difference(newIds);
+    if (removed.isNotEmpty) {
+      final removedProducts = oldList.where((p) => removed.contains(p.id));
+      for (final p in removedProducts) {
+        debugPrint('[HomeCubit]   [DEL] OCULTO: "${p.name}" (ID: ${p.id}, '
+            'merchant ${p.merchantId})');
+      }
+    }
+
+    // Productos modificados (mismo ID pero campos cambiaron)
+    final kept = oldIds.intersection(newIds);
+    for (final id in kept) {
+      final old = oldList.firstWhere((p) => p.id == id);
+      final fresh = newList.firstWhere((p) => p.id == id);
+      final changes = <String>[];
+      if (old.name != fresh.name) {
+        changes.add('nombre: "${old.name}" → "${fresh.name}"');
+      }
+      if (old.price != fresh.price) {
+        changes.add('precio: Bs ${old.price} → Bs ${fresh.price}');
+      }
+      if (old.description != fresh.description) changes.add('descripción');
+      if (old.urlImage != fresh.urlImage) changes.add('imagen');
+      if (old.oldPrice != fresh.oldPrice) changes.add('oldPrice');
+      if (changes.isNotEmpty) {
+        debugPrint('[HomeCubit]   [EDIT]  EDITADO: "${fresh.name}" (ID: $id, '
+            'merchant ${fresh.merchantId}): ${changes.join(', ')}');
+      }
+    }
   }
 
   // ─── Fin polling ───────────────────────────────────────────────────────────
