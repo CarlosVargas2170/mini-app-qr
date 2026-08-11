@@ -14,6 +14,7 @@ class MenuItemDto {
   final double effectivePrice;
   final bool isHidden;
   final String? hiddenReason;
+  final String? pccsStatus;
 
   MenuItemDto({
     required this.idProduct,
@@ -28,6 +29,7 @@ class MenuItemDto {
     required this.effectivePrice,
     required this.isHidden,
     this.hiddenReason,
+    this.pccsStatus,
   });
 
   factory MenuItemDto.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class MenuItemDto {
       effectivePrice: (json['effectivePrice'] as num?)?.toDouble() ?? 0,
       isHidden: json['isHidden'] == true,
       hiddenReason: json['hiddenReason'] as String?,
+      pccsStatus: json['pccsStatus'] as String?,
     );
   }
 }

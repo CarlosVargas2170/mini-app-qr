@@ -40,11 +40,11 @@ class EcosystemProductDataSource implements ProductDataSource {
 
     for (final item in menuResponse.data.items) {
       // TODO: Temporalmente desactivado el filtro de productos ocultos
-      // if (item.isHidden) {
-      //   debugPrint(
-      //       '[EcosystemDS] Producto oculto: "${item.nameProduct}" (${item.hiddenReason ?? "sin razón"})');
-      //   continue;
-      // }
+      if (item. isHidden && item.pccsStatus != 'active') {
+        debugPrint(
+            '[EcosystemDS] Producto oculto: "${item.nameProduct}" (${item.hiddenReason ?? "sin razón"})');
+        continue;
+      }
 
       final basePrice = item.basePrice;
       final effectivePrice = item.effectivePrice;
