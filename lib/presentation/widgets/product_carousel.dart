@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/product.dart';
 import '../bloc/home_cubit.dart';
+import 'carousel_swipe_hint.dart';
 import 'product_card.dart';
 
 class ProductCarousel extends StatefulWidget {
@@ -61,24 +62,42 @@ class _ProductCarouselState extends State<ProductCarousel> {
     return Column(
       children: [
         Expanded(
-          child: CarouselSlider.builder(
-            carouselController: _carouselController,
-            itemCount: widget.products.length,
-            itemBuilder: (context, index, realIndex) {
-              return ProductCard(product: widget.products[index], fill: true);
-            },
-            options: CarouselOptions(
-              height: double.infinity,
-              viewportFraction: isWide ? 0.90 : 1.05,
-              initialPage: widget.currentIndex,
-              enableInfiniteScroll: widget.products.length > 1,
-              enlargeCenterPage: true,
-              enlargeFactor: 0.2,
-              onPageChanged: (index, reason) {
-                _realIndex = index;
-                context.read<HomeCubit>().updateCurrentIndex(index);
-              },
-            ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CarouselSlider.builder(
+                carouselController: _carouselController,
+                itemCount: widget.products.length,
+                itemBuilder: (context, index, realIndex) {
+                  return ProductCard(
+                      product: widget.products[index], fill: true);
+                },
+                options: CarouselOptions(
+                  height: double.infinity,
+                  viewportFraction: isWide ? 0.90 : 1.05,
+                  initialPage: widget.currentIndex,
+                  enableInfiniteScroll: widget.products.length > 1,
+                  enlargeCenterPage: true,
+                  enlargeFactor: 0.2,
+                  onPageChanged: (index, reason) {
+                    _realIndex = index;
+                    context.read<HomeCubit>().updateCurrentIndex(index);
+                  },
+                ),
+              ),
+              if (widget.products.length > 1)
+                CarouselSwipeHint(
+                  style: SwipeHintStyle.neon,
+                  onPrevious: () => _carouselController.previousPage(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOut,
+                  ),
+                  onNext: () => _carouselController.nextPage(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+            ],
           ),
         ),
         if (widget.products.length > 1) ...[
