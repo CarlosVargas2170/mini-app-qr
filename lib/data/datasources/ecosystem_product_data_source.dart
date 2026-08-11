@@ -39,12 +39,12 @@ class EcosystemProductDataSource implements ProductDataSource {
     final products = <domain.Product>[];
 
     for (final item in menuResponse.data.items) {
-      // Filtrar productos ocultos
-      if (item.isHidden) {
-        debugPrint(
-            '[EcosystemDS] Producto oculto: "${item.nameProduct}" (${item.hiddenReason ?? "sin razón"})');
-        continue;
-      }
+      // TODO: Temporalmente desactivado el filtro de productos ocultos
+      // if (item.isHidden) {
+      //   debugPrint(
+      //       '[EcosystemDS] Producto oculto: "${item.nameProduct}" (${item.hiddenReason ?? "sin razón"})');
+      //   continue;
+      // }
 
       final basePrice = item.basePrice;
       final effectivePrice = item.effectivePrice;
