@@ -16,6 +16,8 @@ class AppSettings {
 
   String baseUrl = '';
   String bearerToken = '';
+  String ecosystemBaseUrl = '';
+  String ecosystemBearerToken = '';
   List<int> merchantIds = [];
   int productId = 0;
   bool enableImageCache = true;
@@ -26,6 +28,11 @@ class AppSettings {
   ProductFilterConfig filterConfig = ProductFilterConfig(
     filterMode: 'all',
   );
+
+  /// Tiempo mínimo entre polls de productos (en segundos).
+  /// Si el último poll fue hace menos de este tiempo, se omite.
+  /// Default: 60 segundos.
+  int productPollingStaleSeconds = 60;
 
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
   static String customerName = dotenv.env['NAME_MESERO'] ?? 'Robot Mesero';
@@ -47,6 +54,10 @@ class AppSettings {
   void applyFallback() {
     baseUrl = dotenv.env['BASE_URL'] ?? _defaults.baseUrl;
     bearerToken = dotenv.env['BEARER_TOKEN'] ?? _defaults.bearerToken;
+    ecosystemBaseUrl =
+        dotenv.env['ECOSYSTEM_BASE_URL'] ?? _defaults.ecosystemBaseUrl;
+    ecosystemBearerToken =
+        dotenv.env['ECOSYSTEM_BEARER_TOKEN'] ?? _defaults.ecosystemBearerToken;
     merchantIds = dotenv.env['MERCHANT_IDS']
             ?.split(',')
             .map((e) => int.parse(e.trim()))
@@ -56,6 +67,9 @@ class AppSettings {
         int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _defaults.productId;
     baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _defaults.baseUrlVpn;
     portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _defaults.portVpn;
+    productPollingStaleSeconds =
+        int.tryParse(dotenv.env['PRODUCT_POLLING_STALE_SECONDS'] ?? '') ??
+            _defaults.productPollingStaleSeconds;
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
@@ -72,10 +86,13 @@ class AppSettings {
 /// Valores por defecto cuando no hay config guardada.
 abstract final class _defaults {
   static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
-  static const String bearerToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIwLCJlbWFpbCI6ImhlY3ZhbkBnbWFpbC5jb20iLCJyb2xlIjoic3VwZXItYWRtaW4iLCJ0eXBlIjoidXNlciIsImlhdCI6MTc4NTUzMDA2NCwiZXhwIjoxODE3MDY2MDY0fQ.pO_jWIuOz_ck5v14RjpRi822ORmegCpx_IdG0kt-ZUI';
+  static const String bearerToken = '';
+  static const String ecosystemBaseUrl =
+      'https://api-merchant.nexuspatiotech.com';
+  static const String ecosystemBearerToken = '';
   static const List<int> merchantIds = [53];
   static const int productId = 457969;
   static const String baseUrlVpn = "100.99.244.72";
   static const int portVpn = 5050;
+  static const int productPollingStaleSeconds = 60;
 }

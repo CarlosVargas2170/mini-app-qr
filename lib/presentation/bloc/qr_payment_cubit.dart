@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/order_status.dart';
 import '../../domain/usecases/complete_order.dart';
 import '../../domain/usecases/get_payment_status.dart';
+import '../../domain/usecases/get_product.dart';
 import '../../domain/usecases/start_qr_payment.dart';
 import '../../domain/usecases/update_order.dart';
 import 'qr_payment_state.dart';
@@ -20,6 +21,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
   final GetPaymentStatusUseCase _getPaymentStatus;
   final UpdateOrderUseCase _updateOrder;
   final CompleteOrderUseCase _completeOrder;
+  final GetProductUseCase _getProduct;
   final Duration pollingInterval;
   Timer? _pollTimer;
 
@@ -28,19 +30,27 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     required GetPaymentStatusUseCase getPaymentStatus,
     required UpdateOrderUseCase updateOrder,
     required CompleteOrderUseCase completeOrder,
+    required GetProductUseCase getProduct,
     this.pollingInterval = const Duration(seconds: 3),
   })  : _startQrPayment = startQrPayment,
         _getPaymentStatus = getPaymentStatus,
         _updateOrder = updateOrder,
         _completeOrder = completeOrder,
+        _getProduct = getProduct,
         super(const QrPaymentState());
 
   /// Inicia el flujo completo de pago QR.
   ///
   /// Si [autoPoll] es `false`, solo genera la orden + QR y deja el polling
   /// para activarlo después con [beginPolling] (flujo home / operador).
+  ///
+  /// Antes de generar la orden, valida que el producto siga existiendo
+  /// consultando la API con [productId]. Si el producto fue eliminado,
+  /// emite [QrPaymentStatus.failed] con un mensaje descriptivo.
+  /// Si el precio cambió, usa el precio actualizado.
   Future<void> startQrPayment({
     required int merchantId,
+    required int productId,
     required String customerName,
     required String phoneNumber,
     required String whereEat,
@@ -62,6 +72,55 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     emit(state.copyWith(status: QrPaymentStatus.loading));
 
     try {
+      // ── Validación pre-pago: verificar que el producto siga existiendo ──
+      double validatedAmount = amount;
+
+      try {
+        final freshProduct = await _getProduct(merchantId, productId);
+        debugPrint('[QrPaymentCubit] Producto validado: "${freshProduct.name}" '
+            'precio API=${freshProduct.price}, precio local=$amount');
+
+        if (freshProduct.price != amount) {
+          debugPrint(
+              '[QrPaymentCubit] ⚠️ Precio desactualizado: local=$amount → API=${freshProduct.price}. '
+              'Usando precio actualizado.');
+          validatedAmount = freshProduct.price;
+
+          // Actualizar cartItems con el precio fresco
+          for (final item in cartItems) {
+            item['price'] = freshProduct.price;
+          }
+
+          // Actualizar menuData con el precio fresco
+          final menu = menuData;
+          if (menu != null) {
+            final categories = menu['categories'] as List?;
+            if (categories != null && categories.isNotEmpty) {
+              final firstCategory = categories.first as Map?;
+              final products = firstCategory?['products'] as List?;
+              if (products != null && products.isNotEmpty) {
+                final firstProduct = products.first as Map?;
+                if (firstProduct != null) {
+                  firstProduct['price'] = freshProduct.price;
+                  firstProduct['name'] = freshProduct.name;
+                  firstProduct['urlImage'] = freshProduct.urlImage;
+                  firstProduct['description'] = freshProduct.description;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[QrPaymentCubit] ❌ Producto $productId no encontrado: $e');
+        emit(state.copyWith(
+          status: QrPaymentStatus.failed,
+          errorMessage:
+              'Este producto ya no está disponible.\nPor favor elige otro.',
+        ));
+        return;
+      }
+
+      // ── Crear orden y generar QR ──
       final order = await _startQrPayment(
         merchantId: merchantId,
         customerName: customerName,
@@ -69,7 +128,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         whereEat: whereEat,
         cartItems: cartItems,
         menuData: menuData,
-        amount: amount,
+        amount: validatedAmount,
         paymentReferenceOverride: paymentReferenceOverride,
       );
 

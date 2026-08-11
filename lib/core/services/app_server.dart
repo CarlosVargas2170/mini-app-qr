@@ -375,6 +375,17 @@ class AppServer {
       return;
     }
 
+    // --- Product polling endpoints ---
+    if (path == '/products/polling/force' && method == 'POST') {
+      await _handleForceProductPoll(response);
+      return;
+    }
+
+    if (path == '/products/polling/status' && method == 'GET') {
+      await _handleGetProductPollingStatus(response);
+      return;
+    }
+
     // --- Attract GIF endpoints ---
     if (path == '/attract/set' && method == 'POST') {
       await _handleSetAttractGif(request, response);
@@ -701,6 +712,27 @@ class AppServer {
       'success': true,
       'message':
           'Recarga de productos disparada. Los productos se actualizaran en breve.',
+    });
+  }
+
+  /// POST /products/polling/force — Fuerza un poll incondicional de productos.
+  Future<void> _handleForceProductPoll(HttpResponse response) async {
+    debugPrint('[AppServer] Forzando poll de productos');
+    UiCommandBus.emit(const ForceProductPoll());
+    _sendJson(response, 200, {
+      'success': true,
+      'message': 'Poll de productos forzado.',
+    });
+  }
+
+  /// GET /products/polling/status — Retorna la configuración de staleness.
+  Future<void> _handleGetProductPollingStatus(HttpResponse response) async {
+    final settings = AppSettings();
+    _sendJson(response, 200, {
+      'success': true,
+      'data': {
+        'staleSeconds': settings.productPollingStaleSeconds,
+      },
     });
   }
 
