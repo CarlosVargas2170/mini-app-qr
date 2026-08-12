@@ -429,6 +429,8 @@ class AppServer {
 
       AudioService.setRemoteCall(true);
 
+      final showOverlay = json['showOverlay'] ?? true;
+
       // displayText opcional: el remote-control puede enviar el texto a mostrar.
       final displayText = json['displayText'] as String?;
       final played = await AudioService.play(
@@ -436,6 +438,7 @@ class AppServer {
         volume: volume,
         force: force,
         displayText: displayText,
+        showOverlay: showOverlay,
       );
 
       _sendJson(response, 200, {
