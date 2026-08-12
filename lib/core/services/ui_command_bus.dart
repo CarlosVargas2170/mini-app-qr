@@ -55,6 +55,16 @@ class StopPaymentPolling extends UiCommand {
   const StopPaymentPolling();
 }
 
+/// Forzar un poll de productos incondicional (ignora el umbral de staleness).
+class ForceProductPoll extends UiCommand {
+  const ForceProductPoll();
+}
+
+/// Consultar el estado actual del polling de productos.
+class GetProductPollingStatus extends UiCommand {
+  const GetProductPollingStatus();
+}
+
 /// Bus de eventos interno para comunicar capas sin importaciones cruzadas.
 class UiCommandBus {
   static final StreamController<UiCommand> _controller =

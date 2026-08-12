@@ -15,6 +15,10 @@ class HomeCubit extends Cubit<HomeState> {
 
   Timer? _inactivityTimer;
 
+  /// Timestamp del último poll exitoso.
+  /// Se usa para evitar polls demasiado frecuentes (umbral configurable).
+  DateTime? _lastPollTimestamp;
+
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
   static const _inactivityTimeout = Duration(seconds: 300);
 
@@ -33,6 +37,14 @@ class HomeCubit extends Cubit<HomeState> {
 
     try {
       final result = await _loadWithRetry();
+
+      // Poblar cache global para que AppServer pueda leer los productos
+      final cache = ProductCache();
+      cache.allProducts = List.unmodifiable(result.products);
+      cache.merchantNames = List.unmodifiable(result.merchantNames);
+      cache.loadedMerchantIds = List.unmodifiable(result.merchantIds);
+      debugPrint(
+          '[HomeCubit] ProductCache actualizado: ${result.products.length} productos de ${result.merchantIds.length} merchants');
 
       // Aplicar filtro de visibilidad antes de emitir el estado
       final settings = AppSettings();
@@ -55,6 +67,9 @@ class HomeCubit extends Cubit<HomeState> {
       ));
       debugPrint(
           '[HomeCubit] Estado emitido: loaded + attract (${filteredProducts.length} productos de ${result.merchantIds.length} merchants)');
+
+      // Marcar timestamp del último poll exitoso.
+      _lastPollTimestamp = DateTime.now();
     } catch (e, stack) {
       debugPrint('[HomeCubit] load FAILED (incluyendo retry): $e');
       debugPrint('[HomeCubit] StackTrace: $stack');
@@ -127,19 +142,11 @@ class HomeCubit extends Cubit<HomeState> {
 
         if (errors.isNotEmpty) {
           debugPrint(
-              '[HomeCubit] ⚠️ ${errors.length} merchants fallaron, pero se cargaron ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
+              '[HomeCubit] [WARN] ${errors.length} merchants fallaron, pero se cargaron ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
         }
 
         // merchantName principal: combina los nombres de todos los merchants
         final primaryName = merchantNames.join(' | ');
-
-        // Poblar cache global para que AppServer pueda leer los productos
-        final cache = ProductCache();
-        cache.allProducts = List.unmodifiable(allProducts);
-        cache.merchantNames = List.unmodifiable(merchantNames);
-        cache.loadedMerchantIds = List.unmodifiable(loadedMerchantIds);
-        debugPrint(
-            '[HomeCubit] ProductCache actualizado: ${allProducts.length} productos de ${loadedMerchantIds.length} merchants');
 
         return (
           products: allProducts,
@@ -175,6 +182,206 @@ class HomeCubit extends Cubit<HomeState> {
       return null; // Falla gracefully: un merchant caido no detiene a los demas
     }
   }
+
+  // ─── Polling on-demand ─────────────────────────────────────────────────────
+
+  /// Verifica si los datos están stale y ejecuta un poll si es necesario.
+  ///
+  /// Se llama cada vez que se va a mostrar el carrusel de productos.
+  /// Si el último poll fue hace menos de [AppSettings.productPollingStaleSeconds]
+  /// segundos, omite el poll y usa los datos actuales.
+  Future<void> _pollIfStale() async {
+    final staleSeconds = AppSettings().productPollingStaleSeconds;
+    if (staleSeconds <= 0) {
+      debugPrint(
+          '[HomeCubit] Polling on-demand DESHABILITADO (stale=$staleSeconds)');
+      return;
+    }
+
+    final staleThreshold = Duration(seconds: staleSeconds);
+
+    if (_lastPollTimestamp == null) {
+      // Nunca se ha hecho poll (ej: primer showProduct tras load fallido)
+      debugPrint('[HomeCubit] Sin timestamp previo → forzando poll');
+      await _pollProducts();
+      return;
+    }
+
+    final elapsed = DateTime.now().difference(_lastPollTimestamp!);
+    if (elapsed >= staleThreshold) {
+      debugPrint(
+          '[HomeCubit] Datos stale (${elapsed.inSeconds}s >= ${staleSeconds}s) → ejecutando poll');
+      await _pollProducts();
+    } else {
+      debugPrint(
+          '[HomeCubit] Datos frescos (${elapsed.inSeconds}s < ${staleSeconds}s) → omitiendo poll');
+    }
+  }
+
+  /// Fuerza un poll incondicional (ignora el umbral de staleness).
+  ///
+  /// Útil para comandos de recarga manual (remote-control, /products/reload).
+  Future<void> forcePoll() async {
+    debugPrint('[HomeCubit] forcePoll() → forzando poll incondicional');
+    _lastPollTimestamp = null; // Anular timestamp para forzar
+    await _pollProducts();
+  }
+
+  /// Ejecuta un ciclo de polling: obtiene productos frescos de la API
+  /// y actualiza el estado silenciosamente si hay cambios.
+  ///
+  /// No interrumpe al usuario:
+  /// - Mantiene el [displayMode] actual.
+  /// - Recalcula [currentIndex] si el producto activo sigue existiendo.
+  /// - Resetea [currentIndex] a 0 si el producto activo fue eliminado.
+  /// - Si no hay cambios, no emite estado (ahorra rebuilds).
+  Future<void> _pollProducts() async {
+    if (isClosed) return;
+
+    debugPrint('[HomeCubit] [POLL] Iniciando ciclo de polling...');
+    try {
+      final result = await _loadWithRetry();
+
+      // Aplicar filtro de visibilidad
+      final settings = AppSettings();
+      final filter = settings.filterConfig;
+      final freshProducts = result.products
+          .where((p) => filter.isProductVisible(p.id, p.merchantId))
+          .toList();
+
+      // Comparar con los productos actuales para detectar cambios
+      final currentProducts = state.products;
+      if (_listsAreIdentical(currentProducts, freshProducts)) {
+        // Sin cambios: actualizar timestamp pero no emitir estado
+        debugPrint('[HomeCubit] [OK] Polling: sin cambios detectados');
+        _lastPollTimestamp = DateTime.now();
+        return;
+      }
+
+      // ── Hay cambios: loguear detalle de lo que cambió ──
+      debugPrint(
+          '[HomeCubit] [CHG] ──────────────────────────────────────────────');
+      debugPrint('[HomeCubit] [CHG] POLLING: CAMBIOS DETECTADOS');
+      debugPrint(
+          '[HomeCubit] [CHG] Antes: ${currentProducts.length} productos → Ahora: ${freshProducts.length} productos');
+      _logProductDiff(currentProducts, freshProducts);
+      debugPrint(
+          '[HomeCubit] [CHG] ──────────────────────────────────────────────');
+
+      // Actualizar cache global con los productos frescos
+      final cache = ProductCache();
+      cache.allProducts = List.unmodifiable(result.products);
+      cache.merchantNames = List.unmodifiable(result.merchantNames);
+      cache.loadedMerchantIds = List.unmodifiable(result.merchantIds);
+      debugPrint(
+          '[HomeCubit] ProductCache actualizado: ${result.products.length} productos de ${result.merchantIds.length} merchants');
+
+      var newIndex = 0;
+      final previousProduct = state.currentProduct;
+      if (previousProduct != null) {
+        // Buscar el producto anterior en la nueva lista por ID
+        final foundIndex =
+            freshProducts.indexWhere((p) => p.id == previousProduct.id);
+        newIndex = foundIndex >= 0 ? foundIndex : 0;
+        if (foundIndex < 0) {
+          debugPrint(
+              '[HomeCubit] [WARN] Producto activo "${previousProduct.name}" (ID: ${previousProduct.id}) ya no está visible. Índice reseteado a 0.');
+        } else if (foundIndex != state.currentIndex) {
+          debugPrint(
+              '[HomeCubit] Producto activo "${previousProduct.name}" movido de índice ${state.currentIndex} → $foundIndex.');
+        }
+      }
+
+      // Marcar timestamp del poll exitoso
+      _lastPollTimestamp = DateTime.now();
+
+      // Emitir nuevo estado sin cambiar displayMode
+      emit(state.copyWith(
+        status: HomeStatus.loaded,
+        products: freshProducts,
+        currentIndex: newIndex,
+        merchantName: result.merchantName,
+        merchantNames: result.merchantNames,
+        merchantIds: result.merchantIds,
+        lastPolledAt: DateTime.now(),
+      ));
+
+      debugPrint(
+          '[HomeCubit] [OK] Estado actualizado vía polling (${freshProducts.length} productos visibles, índice=$newIndex)');
+    } catch (e, stack) {
+      // Fallo silencioso: no interrumpir al usuario, solo loguear.
+      debugPrint('[HomeCubit] [WARN] Polling falló (red caída?): $e');
+      debugPrint('[HomeCubit] StackTrace: $stack');
+      // El estado actual se mantiene intacto. NO actualizar _lastPollTimestamp.
+    }
+  }
+
+  /// Compara dos listas de productos para determinar si son idénticas.
+  ///
+  /// Compara: orden, IDs, y campos relevantes (nombre, precio, oldPrice,
+  /// descripción, urlImage, merchantId).
+  bool _listsAreIdentical(List<Product> a, List<Product> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+      if (a[i].name != b[i].name) return false;
+      if (a[i].price != b[i].price) return false;
+      if (a[i].oldPrice != b[i].oldPrice) return false;
+      if (a[i].description != b[i].description) return false;
+      if (a[i].urlImage != b[i].urlImage) return false;
+      if (a[i].merchantId != b[i].merchantId) return false;
+    }
+    return true;
+  }
+
+  /// Loguea los cambios entre dos listas de productos para debugging.
+  void _logProductDiff(List<Product> oldList, List<Product> newList) {
+    final oldIds = oldList.map((p) => p.id).toSet();
+    final newIds = newList.map((p) => p.id).toSet();
+
+    // Productos agregados
+    final added = newIds.difference(oldIds);
+    if (added.isNotEmpty) {
+      final addedProducts = newList.where((p) => added.contains(p.id));
+      for (final p in addedProducts) {
+        debugPrint('[HomeCubit]   [ADD] NUEVO:  "${p.name}" (ID: ${p.id}, '
+            'Bs ${p.price}, merchant ${p.merchantId})');
+      }
+    }
+
+    // Productos eliminados/ocultados
+    final removed = oldIds.difference(newIds);
+    if (removed.isNotEmpty) {
+      final removedProducts = oldList.where((p) => removed.contains(p.id));
+      for (final p in removedProducts) {
+        debugPrint('[HomeCubit]   [DEL] OCULTO: "${p.name}" (ID: ${p.id}, '
+            'merchant ${p.merchantId})');
+      }
+    }
+
+    // Productos modificados (mismo ID pero campos cambiaron)
+    final kept = oldIds.intersection(newIds);
+    for (final id in kept) {
+      final old = oldList.firstWhere((p) => p.id == id);
+      final fresh = newList.firstWhere((p) => p.id == id);
+      final changes = <String>[];
+      if (old.name != fresh.name) {
+        changes.add('nombre: "${old.name}" → "${fresh.name}"');
+      }
+      if (old.price != fresh.price) {
+        changes.add('precio: Bs ${old.price} → Bs ${fresh.price}');
+      }
+      if (old.description != fresh.description) changes.add('descripción');
+      if (old.urlImage != fresh.urlImage) changes.add('imagen');
+      if (old.oldPrice != fresh.oldPrice) changes.add('oldPrice');
+      if (changes.isNotEmpty) {
+        debugPrint('[HomeCubit]   [EDIT]  EDITADO: "${fresh.name}" (ID: $id, '
+            'merchant ${fresh.merchantId}): ${changes.join(', ')}');
+      }
+    }
+  }
+
+  // ─── Fin polling ───────────────────────────────────────────────────────────
 
   /// Actualiza el indice del producto seleccionado en el carrusel.
   /// Reinicia el timer de inactividad cada vez que el usuario hace swipe.
@@ -229,6 +436,9 @@ class HomeCubit extends Cubit<HomeState> {
         '[HomeCubit] showProductWithTimeout(${timeout.inSeconds}s) llamado');
     _cancelInactivityTimer();
 
+    // Verificar staleness antes de mostrar productos
+    await _pollIfStale();
+
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(displayMode: DisplayMode.product));
       debugPrint('[HomeCubit] Estado emitido: displayMode=product');
@@ -276,6 +486,9 @@ class HomeCubit extends Cubit<HomeState> {
     debugPrint(
         '[HomeCubit] showProductResetCarousel(${timeout.inSeconds}s) llamado');
     _cancelInactivityTimer();
+
+    // Verificar staleness antes de mostrar productos
+    await _pollIfStale();
 
     if (state.status == HomeStatus.loaded) {
       emit(state.copyWith(

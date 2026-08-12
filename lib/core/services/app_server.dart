@@ -375,6 +375,17 @@ class AppServer {
       return;
     }
 
+    // --- Product polling endpoints ---
+    if (path == '/products/polling/force' && method == 'POST') {
+      await _handleForceProductPoll(response);
+      return;
+    }
+
+    if (path == '/products/polling/status' && method == 'GET') {
+      await _handleGetProductPollingStatus(response);
+      return;
+    }
+
     // --- Attract GIF endpoints ---
     if (path == '/attract/set' && method == 'POST') {
       await _handleSetAttractGif(request, response);
@@ -418,6 +429,8 @@ class AppServer {
 
       AudioService.setRemoteCall(true);
 
+      final showOverlay = json['showOverlay'] ?? true;
+
       // displayText opcional: el remote-control puede enviar el texto a mostrar.
       final displayText = json['displayText'] as String?;
       final played = await AudioService.play(
@@ -425,6 +438,7 @@ class AppServer {
         volume: volume,
         force: force,
         displayText: displayText,
+        showOverlay: showOverlay,
       );
 
       _sendJson(response, 200, {
@@ -523,15 +537,8 @@ class AppServer {
         needsRestart = true; // Cambiar puerto del servidor requiere reinicio
       }
 
-      await ConfigStorage.write({
-        'baseUrl': settings.baseUrl,
-        'bearerToken': settings.bearerToken,
-        'merchantIds': settings.merchantIds,
-        'productId': settings.productId,
-        'baseUrlVpn': settings.baseUrlVpn,
-        'portVpn': settings.portVpn,
-        'filterConfig': settings.filterConfig.toJson(),
-      });
+      // La configuracion de conexion se toma del archivo .env.
+      // No se persiste en disco.
 
       // Recargar producto en caliente si cambio merchantId o productId
       if (needsReload) {
@@ -677,16 +684,8 @@ class AppServer {
         changes.add('Filtros reseteados');
       }
 
-      // Persistir
-      await ConfigStorage.write({
-        'baseUrl': settings.baseUrl,
-        'bearerToken': settings.bearerToken,
-        'merchantIds': settings.merchantIds,
-        'productId': settings.productId,
-        'baseUrlVpn': settings.baseUrlVpn,
-        'portVpn': settings.portVpn,
-        'filterConfig': filter.toJson(),
-      });
+      // Los filtros viven solo en memoria (no se persisten en disco).
+      // Al reiniciar la app, todos los productos vuelven a ser visibles.
 
       final reload = json['reload'] == true;
       if (reload) {
@@ -716,6 +715,27 @@ class AppServer {
       'success': true,
       'message':
           'Recarga de productos disparada. Los productos se actualizaran en breve.',
+    });
+  }
+
+  /// POST /products/polling/force — Fuerza un poll incondicional de productos.
+  Future<void> _handleForceProductPoll(HttpResponse response) async {
+    debugPrint('[AppServer] Forzando poll de productos');
+    UiCommandBus.emit(const ForceProductPoll());
+    _sendJson(response, 200, {
+      'success': true,
+      'message': 'Poll de productos forzado.',
+    });
+  }
+
+  /// GET /products/polling/status — Retorna la configuración de staleness.
+  Future<void> _handleGetProductPollingStatus(HttpResponse response) async {
+    final settings = AppSettings();
+    _sendJson(response, 200, {
+      'success': true,
+      'data': {
+        'staleSeconds': settings.productPollingStaleSeconds,
+      },
     });
   }
 

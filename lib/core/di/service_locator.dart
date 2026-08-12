@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../core/config/app_settings.dart';
-import '../../data/product_remote_data_source.dart';
 import '../../data/datasources/qr_payment_remote_data_source.dart';
+import '../../data/factories/product_data_source_factory.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../../domain/repositories/qr_payment_repository.dart';
 import '../../domain/usecases/get_product.dart';
@@ -23,8 +23,8 @@ class ServiceLocator {
   ServiceLocator._internal();
 
   late final Dio _dio;
-  late final ProductRemoteDataSource _productRemoteDataSource;
   late final QrPaymentRemoteDataSource _qrPaymentRemoteDataSource;
+  late final ProductDataSourceFactory _productDataSourceFactory;
 
   late final ProductRepository productRepository;
   late final QrPaymentRepository qrPaymentRepository;
@@ -49,10 +49,10 @@ class ServiceLocator {
       },
     ));
 
-    _productRemoteDataSource = ProductRemoteDataSource(_dio);
     _qrPaymentRemoteDataSource = QrPaymentRemoteDataSourceImpl(_dio);
+    _productDataSourceFactory = ProductDataSourceFactory();
 
-    productRepository = ProductRepositoryImpl(_productRemoteDataSource);
+    productRepository = ProductRepositoryImpl(_productDataSourceFactory);
     qrPaymentRepository = QrPaymentRepositoryImpl(_qrPaymentRemoteDataSource);
 
     getProductUseCase = GetProductUseCase(productRepository);
@@ -76,6 +76,7 @@ class ServiceLocator {
         getPaymentStatus: getPaymentStatusUseCase,
         updateOrder: updateOrderUseCase,
         completeOrder: completeOrderUseCase,
+        getProduct: getProductUseCase,
       );
 }
 

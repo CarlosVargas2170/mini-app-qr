@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/app_settings.dart';
 import 'core/di/service_locator.dart';
@@ -33,6 +34,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // 0. Cargar variables de entorno desde el archivo .env
+  await dotenv.load(fileName: ".env");
 
   // 1. Cargar configuracion desde disco (o fallback por defecto).
   await AppSettings().load();
