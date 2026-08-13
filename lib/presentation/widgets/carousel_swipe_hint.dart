@@ -149,10 +149,10 @@ class _SwipeArrowState extends State<_SwipeArrow>
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF6B6B).withOpacity(0.2),
+              color: const Color(0xFFFF6B6B).withValues(alpha: 0.2),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF6B6B).withOpacity(0.5),
+                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.5),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),
@@ -183,10 +183,10 @@ class _SwipeArrowState extends State<_SwipeArrow>
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.12),
+              color: Colors.white.withValues(alpha: 0.12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),
@@ -194,7 +194,7 @@ class _SwipeArrowState extends State<_SwipeArrow>
             ),
             child: Icon(
               _icon,
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               size: widget.iconSize,
             ),
           ),
@@ -212,18 +212,21 @@ class _SwipeArrowState extends State<_SwipeArrow>
       height: 64,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1,
+        ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(0.18),
-            Colors.white.withOpacity(0.06),
+            Colors.white.withValues(alpha: 0.18),
+            Colors.white.withValues(alpha: 0.06),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -231,7 +234,7 @@ class _SwipeArrowState extends State<_SwipeArrow>
       ),
       child: Icon(
         _icon,
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white.withValues(alpha: 0.85),
         size: widget.iconSize + 4,
       ),
     );

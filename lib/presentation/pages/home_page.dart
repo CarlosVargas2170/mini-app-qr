@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/config/app_settings.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
@@ -11,7 +12,9 @@ import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
+import '../widgets/floating_cart.dart';
 import '../widgets/product_carousel.dart';
+import '../widgets/product_quantity_selector.dart';
 import 'qr_payment_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -36,6 +39,9 @@ class _HomeView extends StatefulWidget {
 class _HomeViewState extends State<_HomeView> {
   StreamSubscription<UiCommand>? _commandSub;
   QrPaymentCubit? _activePaymentCubit;
+  BuildContext? _clearCartDialogContext;
+  int _lastCartSyncRevision = 0;
+  bool _isPreparingPayment = false;
 
   @override
   void initState() {
@@ -121,7 +127,14 @@ class _HomeViewState extends State<_HomeView> {
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: BlocConsumer<HomeCubit, HomeState>(
-            listener: (context, state) {},
+            listener: (context, state) {
+              if (state.displayMode != DisplayMode.product) {
+                _dismissClearCartDialog();
+                // Una nueva sesion no debe mostrar avisos de la anterior.
+                _lastCartSyncRevision = state.cartSyncRevision;
+              }
+              _showCartSyncNoticeIfNeeded(context, state);
+            },
             builder: (context, state) {
               debugPrint(
                   '[HomePage] rebuild -> status=${state.status}, displayMode=${state.displayMode}');
@@ -133,7 +146,9 @@ class _HomeViewState extends State<_HomeView> {
                     HomeStatus.initial || HomeStatus.loading => _buildLoading(),
                     HomeStatus.error =>
                       _buildError(state.errorMessage, context),
-                    HomeStatus.loaded => _buildContent(context, state),
+                    HomeStatus.loaded => state.products.isEmpty
+                        ? _buildNoProducts()
+                        : _buildContent(context, state),
                   },
               };
             },
@@ -172,12 +187,51 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
+  Widget _buildNoProducts() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Text(
+          'No hay productos disponibles en este momento.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 20),
+        ),
+      ),
+    );
+  }
+
+  void _showCartSyncNoticeIfNeeded(
+    BuildContext context,
+    HomeState state,
+  ) {
+    if (state.displayMode != DisplayMode.product ||
+        _activePaymentCubit != null ||
+        state.cartSyncRevision <= _lastCartSyncRevision ||
+        state.cartSyncMessage == null) {
+      return;
+    }
+
+    _lastCartSyncRevision = state.cartSyncRevision;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(state.cartSyncMessage!),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   Widget _buildPortraitLayout(BuildContext context, HomeState state,
       {required bool isTall}) {
     final product = state.currentProduct!;
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: ConstrainedBox(
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
         constraints: BoxConstraints(
           minHeight: MediaQuery.of(context).size.height -
               MediaQuery.of(context).padding.top -
@@ -198,12 +252,21 @@ class _HomeViewState extends State<_HomeView> {
               const SizedBox(height: 16),
               _buildProductInfo(product),
               const SizedBox(height: 12),
-              _buildPayButton(context, state),
+              _buildQuantitySelector(context, state),
               const SizedBox(height: 24),
+              _buildPayButton(context, state),
+              const SizedBox(height: 96),
             ],
           ),
+            ),
+          ),
         ),
-      ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: _buildFloatingCart(context, state),
+        ),
+      ],
     );
   }
 
@@ -232,10 +295,13 @@ class _HomeViewState extends State<_HomeView> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                     const Icon(Icons.coffee, color: AppColors.accent, size: 48),
                     const SizedBox(height: 16),
                     Text(
@@ -259,7 +325,17 @@ class _HomeViewState extends State<_HomeView> {
                     ),
                     const Divider(color: AppColors.border, height: 40),
                     const SizedBox(height: 12),
+                    _buildQuantitySelector(context, state),
+                    const SizedBox(height: 24),
                     _buildPayButton(context, state),
+                    const SizedBox(height: 68),
+                      ],
+                    ),
+                    Positioned(
+                      right: -20,
+                      bottom: -20,
+                      child: _buildFloatingCart(context, state),
+                    ),
                   ],
                 ),
               ),
@@ -267,6 +343,36 @@ class _HomeViewState extends State<_HomeView> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuantitySelector(BuildContext context, HomeState state) {
+    final product = state.currentProduct!;
+    final cubit = context.read<HomeCubit>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ProductQuantitySelector(
+        quantity: state.quantityFor(product),
+        maxQuantity: AppSettings().maxCartItemQuantity,
+        onIncrement: () => cubit.incrementProduct(product),
+        onDecrement: () => cubit.decrementProduct(product),
+      ),
+    );
+  }
+
+  Widget _buildFloatingCart(BuildContext context, HomeState state) {
+    final cubit = context.read<HomeCubit>();
+    return FloatingCart(
+      products: state.cartProducts,
+      quantityFor: state.quantityFor,
+      totalItems: state.cartTotalItems,
+      totalAmount: state.cartTotal,
+      maxItemQuantity: AppSettings().maxCartItemQuantity,
+      onIncrement: cubit.incrementProduct,
+      onDecrement: cubit.decrementProduct,
+      onRemove: cubit.removeProductFromCart,
+      onClear: () => _confirmClearCart(context),
+      onInteraction: cubit.registerCartInteraction,
     );
   }
 
@@ -343,13 +449,16 @@ class _HomeViewState extends State<_HomeView> {
   }
 
   Widget _buildPayButton(BuildContext context, HomeState state) {
+    final hasCartItems = state.cartTotalItems > 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ElevatedButton.icon(
-        onPressed: () => _goToPayment(context, state),
+        onPressed: hasCartItems ? () => _goToPayment(context, state) : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.background,
+          disabledBackgroundColor: AppColors.border,
+          disabledForegroundColor: AppColors.textMuted,
           padding: const EdgeInsets.symmetric(vertical: 20),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -357,51 +466,155 @@ class _HomeViewState extends State<_HomeView> {
         ),
         icon: const Icon(Icons.qr_code, size: 28),
         label: const Text(
-          'PAGAR CON QR',
+          'PAGAR PEDIDO CON QR',
+          textAlign: TextAlign.center,
           style: TextStyle(
-              fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
       ),
     );
   }
 
-  void _goToPayment(BuildContext context, HomeState state) {
-    final p = state.currentProduct!;
+  Future<void> _confirmClearCart(BuildContext context) async {
+    context.read<HomeCubit>().registerCartInteraction();
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        _clearCartDialogContext = dialogContext;
+        return AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        contentPadding: const EdgeInsets.fromLTRB(32, 20, 32, 24),
+        actionsPadding: const EdgeInsets.fromLTRB(32, 0, 32, 28),
+        backgroundColor: AppColors.surface,
+        titlePadding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+        title: const Text(
+          '¿Vaciar el carrito?',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 480,
+          child: Text(
+            'Se eliminarán todos los productos seleccionados.',
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+        actions: [
+          SizedBox(
+            width: 160,
+            height: 58,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('CANCELAR', style: TextStyle(fontSize: 17)),
+            ),
+          ),
+          SizedBox(
+            width: 160,
+            height: 58,
+            child: FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+              child: const Text('VACIAR', style: TextStyle(fontSize: 17)),
+            ),
+          ),
+        ],
+        );
+      },
+    );
+
+    _clearCartDialogContext = null;
+
+    if (shouldClear == true && mounted) {
+      this.context.read<HomeCubit>().clearCart();
+    }
+  }
+
+  void _dismissClearCartDialog() {
+    final dialogContext = _clearCartDialogContext;
+    if (dialogContext == null || !dialogContext.mounted) return;
+    _clearCartDialogContext = null;
+    Navigator.of(dialogContext).pop(false);
+  }
+
+  Future<void> _goToPayment(BuildContext context, HomeState state) async {
+    if (_isPreparingPayment || _activePaymentCubit != null) return;
+    if (state.cartProducts.isEmpty) return;
+
+    _isPreparingPayment = true;
+    final homeCubit = context.read<HomeCubit>();
+    final previousSyncRevision = homeCubit.state.cartSyncRevision;
+    homeCubit.pauseCustomerSessionTimeout();
+
+    // La orden debe salir del catalogo mas reciente. El polling reconcilia el
+    // carrito por merchant/producto antes de crear el snapshot de pago.
+    await homeCubit.forcePoll();
+    if (!mounted) return;
+
+    final refreshedState = homeCubit.state;
+    final cartWasAdjusted =
+        refreshedState.cartSyncRevision > previousSyncRevision;
+    if (refreshedState.displayMode != DisplayMode.product) {
+      _isPreparingPayment = false;
+      return;
+    }
+    if (cartWasAdjusted || refreshedState.cartProducts.isEmpty) {
+      _isPreparingPayment = false;
+      homeCubit.resumeCustomerSessionTimeout();
+      _showCartSyncNoticeIfNeeded(this.context, refreshedState);
+      return;
+    }
+
+    final products = List.of(refreshedState.cartProducts);
+
+    // Snapshot del carrito: orden y QR salen de la misma seleccion.
+    final cartItems = products
+        .map<Map<String, dynamic>>((product) => {
+              'id': product.id,
+              'name': product.name,
+              'quantity': refreshedState.quantityFor(product),
+              'price': product.price,
+            })
+        .toList(growable: false);
+    final menuProducts = products
+        .map<Map<String, dynamic>>((product) => {
+              'id': product.id,
+              'name': product.name,
+              'price': product.price,
+              'urlImage': product.urlImage,
+              'description': product.description,
+            })
+        .toList(growable: false);
+    final firstProduct = products.first;
+    final amount = products.fold<double>(
+      0,
+      (total, product) =>
+          total + product.price * refreshedState.quantityFor(product),
+    );
 
     _activePaymentCubit?.close();
-
     final cubit = sl.qrPaymentCubit();
     _activePaymentCubit = cubit;
+    _isPreparingPayment = false;
 
-    Navigator.of(context)
+    Navigator.of(this.context)
         .push(
       MaterialPageRoute(
         builder: (_) => BlocProvider.value(
           value: cubit,
           child: QrPaymentPage(
-            merchantId: p.merchantId,
-            productId: p.id,
-            amount: p.price,
-            cartItems: [
-              {
-                'name': p.name,
-                'quantity': 1,
-                'price': p.price,
-              },
-            ],
+            merchantId: firstProduct.merchantId,
+            productId: firstProduct.id,
+            amount: amount,
+            cartItems: cartItems,
             menuData: {
-              'merchantName': state.getMerchantNameForProduct(p),
+              'merchantName':
+                  refreshedState.getMerchantNameForProduct(firstProduct),
               'categories': [
                 {
-                  'products': [
-                    {
-                      'id': p.id,
-                      'name': p.name,
-                      'price': p.price,
-                      'urlImage': p.urlImage,
-                      'description': p.description,
-                    },
-                  ],
+                  'products': menuProducts,
                 },
               ],
             },
@@ -410,12 +623,12 @@ class _HomeViewState extends State<_HomeView> {
               _activePaymentCubit?.stopPollingOnly();
               final cubit = _activePaymentCubit;
               _activePaymentCubit = null;
-              if (mounted && Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
+              if (mounted && Navigator.of(this.context).canPop()) {
+                Navigator.of(this.context).pop();
               }
               cubit?.close();
               if (mounted) {
-                context.read<HomeCubit>().showAttract();
+                this.context.read<HomeCubit>().showAttract();
               }
             },
           ),
@@ -427,6 +640,10 @@ class _HomeViewState extends State<_HomeView> {
       _activePaymentCubit?.stopPollingOnly();
       _activePaymentCubit?.close();
       _activePaymentCubit = null;
+      if (!mounted) return;
+      final homeCubit = this.context.read<HomeCubit>();
+      homeCubit.resumeCustomerSessionTimeout();
+      _showCartSyncNoticeIfNeeded(this.context, homeCubit.state);
     });
   }
 }

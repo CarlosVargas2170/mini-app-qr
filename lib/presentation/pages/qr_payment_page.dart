@@ -114,7 +114,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
               _paymentSucceeded = true;
               AudioService.playThanks();
               PaymentCounter().increment(
-                amount: widget.amount,
+                amount: state.amount ?? widget.amount,
                 productId: _productId ?? 0,
                 productName: _productName,
                 merchantId: widget.merchantId,
@@ -190,7 +190,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           CircularProgressIndicator(color: AppColors.accent, strokeWidth: 3),
           SizedBox(height: 24),
           Text(
-            'Generando código QR...',
+            'Verificando pedido y generando QR...',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
           ),
         ],
@@ -201,10 +201,14 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   // ─────────────────────────────────────────────────────────────
   // Remote-control: publica estado al singleton global
   // ─────────────────────────────────────────────────────────────
-  /// Nombre del producto desde cartItems.
-  String get _productName => widget.cartItems.isNotEmpty
-      ? (widget.cartItems.first['name'] as String?) ?? ''
-      : '';
+  /// Nombre resumido de la compra para el estado remoto.
+  String get _productName {
+    if (widget.cartItems.isEmpty) return '';
+    if (widget.cartItems.length == 1) {
+      return (widget.cartItems.first['name'] as String?) ?? '';
+    }
+    return 'Pedido (${widget.cartItems.length} productos)';
+  }
 
   /// ID del producto desde menuData (primer producto de la primera categoria).
   int? get _productId {
@@ -232,7 +236,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           productId: _productId ?? 0,
           merchantId: widget.merchantId,
           orderId: state.orderId,
-          amount: widget.amount,
+          amount: state.amount ?? widget.amount,
           productName: _productName,
         );
       case QrPaymentStatus.qrReady:
@@ -241,7 +245,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             productId: _productId ?? 0,
             merchantId: widget.merchantId,
             orderId: state.orderId!,
-            amount: widget.amount,
+            amount: state.amount ?? widget.amount,
             productName: _productName,
           );
         } else {
@@ -249,7 +253,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             productId: _productId ?? 0,
             merchantId: widget.merchantId,
             orderId: state.orderId,
-            amount: widget.amount,
+            amount: state.amount ?? widget.amount,
             productName: _productName,
           );
         }
@@ -258,7 +262,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           productId: _productId,
           merchantId: widget.merchantId,
           orderId: state.orderId,
-          amount: widget.amount,
+          amount: state.amount ?? widget.amount,
           productName: _productName,
         );
       case QrPaymentStatus.failed:

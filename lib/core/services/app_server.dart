@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../config/app_settings.dart';
-import '../config/config_storage.dart';
 import 'audio_service.dart';
 import 'payment_counter.dart';
 import 'payment_polling_status.dart';
@@ -549,8 +548,9 @@ class AppServer {
 
       final messages = <String>[];
       if (needsReload) messages.add('Producto recargado en caliente.');
-      if (needsRestart)
+      if (needsRestart) {
         messages.add('Reinicia la app para aplicar cambios de URL/Token.');
+      }
       if (messages.isEmpty) messages.add('Configuracion guardada.');
 
       _sendJson(response, 200, {
@@ -753,10 +753,11 @@ class AppServer {
     try {
       final body = await utf8.decoder.bind(request).join();
       final json = jsonDecode(body) as Map<String, dynamic>;
-      print('[AppServer] Cambio de GIF de atraccion solicitado: $json');
+      debugPrint('[AppServer] Cambio de GIF de atraccion solicitado: $json');
       final gifName = json['gif'] as String? ?? 'attract';
       final assetPath = 'assets/images/$gifName.gif';
-      print('[AppServer] Cambiando GIF de atraccion a: $gifName ($assetPath)');
+      debugPrint(
+          '[AppServer] Cambiando GIF de atraccion a: $gifName ($assetPath)');
       UiCommandBus.currentGifName = gifName;
       UiCommandBus.emit(ShowAttract(gifAsset: assetPath));
 
