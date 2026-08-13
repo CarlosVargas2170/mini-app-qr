@@ -17,6 +17,9 @@ class HomeState extends Equatable {
   final String merchantName;
   final List<String> merchantNames;
   final List<int> merchantIds;
+  final Map<String, int> cartQuantities;
+  final String? cartSyncMessage;
+  final int cartSyncRevision;
   final String? errorMessage;
 
   /// Marca de tiempo del último polling exitoso de productos.
@@ -35,6 +38,9 @@ class HomeState extends Equatable {
     this.merchantName = 'Mi Tienda',
     this.merchantNames = const [],
     this.merchantIds = const [],
+    this.cartQuantities = const {},
+    this.cartSyncMessage,
+    this.cartSyncRevision = 0,
     this.errorMessage,
     this.lastPolledAt,
     this.attractGifAsset = 'assets/images/normal.gif',
@@ -42,6 +48,21 @@ class HomeState extends Equatable {
 
   Product? get currentProduct =>
       products.isNotEmpty ? products[currentIndex] : null;
+
+  static String cartKey(Product product) =>
+      '${product.merchantId}_${product.id}';
+
+  int quantityFor(Product product) => cartQuantities[cartKey(product)] ?? 0;
+
+  List<Product> get cartProducts =>
+      products.where((product) => quantityFor(product) > 0).toList();
+
+  int get cartTotalItems => cartQuantities.values.fold(0, (a, b) => a + b);
+
+  double get cartTotal => cartProducts.fold(
+        0,
+        (total, product) => total + product.price * quantityFor(product),
+      );
 
   /// Obtiene el nombre del merchant para un producto especifico.
   String getMerchantNameForProduct(Product product) {
@@ -60,6 +81,9 @@ class HomeState extends Equatable {
     String? merchantName,
     List<String>? merchantNames,
     List<int>? merchantIds,
+    Map<String, int>? cartQuantities,
+    String? cartSyncMessage,
+    int? cartSyncRevision,
     String? errorMessage,
     DateTime? lastPolledAt,
     String? attractGifAsset,
@@ -72,6 +96,9 @@ class HomeState extends Equatable {
       merchantName: merchantName ?? this.merchantName,
       merchantNames: merchantNames ?? this.merchantNames,
       merchantIds: merchantIds ?? this.merchantIds,
+      cartQuantities: cartQuantities ?? this.cartQuantities,
+      cartSyncMessage: cartSyncMessage ?? this.cartSyncMessage,
+      cartSyncRevision: cartSyncRevision ?? this.cartSyncRevision,
       errorMessage: errorMessage ?? this.errorMessage,
       lastPolledAt: lastPolledAt ?? this.lastPolledAt,
       attractGifAsset: attractGifAsset ?? this.attractGifAsset,
@@ -87,6 +114,9 @@ class HomeState extends Equatable {
         merchantName,
         merchantNames,
         merchantIds,
+        cartQuantities,
+        cartSyncMessage,
+        cartSyncRevision,
         errorMessage,
         lastPolledAt,
         attractGifAsset,

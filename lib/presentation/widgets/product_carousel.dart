@@ -70,7 +70,9 @@ class _ProductCarouselState extends State<ProductCarousel> {
                 itemCount: widget.products.length,
                 itemBuilder: (context, index, realIndex) {
                   return ProductCard(
-                      product: widget.products[index], fill: true);
+                    product: widget.products[index],
+                    fill: true,
+                  );
                 },
                 options: CarouselOptions(
                   height: double.infinity,
