@@ -41,11 +41,21 @@ class _FloatingCartState extends State<FloatingCart> {
   @override
   void didUpdateWidget(covariant FloatingCart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_isOpen && widget.totalItems == 0) {
-      _removeOverlay();
-    } else {
+    if (!_isOpen) return;
+
+    // didUpdateWidget se ejecuta mientras Flutter esta reconstruyendo la Home.
+    // Marcar el Overlay como sucio en ese instante puede provocar
+    // "setState/markNeedsBuild called during build". Se actualiza al finalizar
+    // el frame para mantener sincronizados el panel y el boton flotante.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isOpen) return;
+      if (widget.totalItems == 0) {
+        _removeOverlay();
+        setState(() {});
+        return;
+      }
       _overlayEntry?.markNeedsBuild();
-    }
+    });
   }
 
   @override
@@ -213,10 +223,15 @@ class _FloatingCartState extends State<FloatingCart> {
   void _decrementProduct(Product product) {
     final quantity = widget.quantityFor(product);
     if (quantity <= 0) return;
-    if (quantity == 1 && widget.totalItems == 1) {
+
+    final shouldClose = quantity == 1 && widget.totalItems == 1;
+    widget.onDecrement(product);
+
+    // Actualizar primero el carrito evita desmontar el Overlay mientras el
+    // IconButton todavia esta procesando el gesto de la ultima unidad.
+    if (shouldClose) {
       _closeOverlay();
     }
-    widget.onDecrement(product);
   }
 
   void _requestClear() {
@@ -225,11 +240,15 @@ class _FloatingCartState extends State<FloatingCart> {
   }
 
   void _removeProduct(Product product) {
-    if (widget.quantityFor(product) <= 0) return;
-    if (widget.totalItems == widget.quantityFor(product)) {
+    final quantity = widget.quantityFor(product);
+    if (quantity <= 0) return;
+
+    final shouldClose = widget.totalItems == quantity;
+    widget.onRemove(product);
+
+    if (shouldClose) {
       _closeOverlay();
     }
-    widget.onRemove(product);
   }
 }
 
@@ -276,7 +295,13 @@ class _CartItem extends StatelessWidget {
             ],
           ),
         ),
-        IconButton(onPressed: onDecrement, icon: const Icon(Icons.remove_circle_outline)),
+        IconButton(
+          key: ValueKey(
+            'cart-decrement-${product.merchantId}-${product.id}',
+          ),
+          onPressed: onDecrement,
+          icon: const Icon(Icons.remove_circle_outline),
+        ),
         Text('$quantity', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         IconButton(
           onPressed: quantity < maxQuantity ? onIncrement : null,
