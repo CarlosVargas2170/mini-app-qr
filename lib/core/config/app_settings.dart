@@ -34,6 +34,12 @@ class AppSettings {
   /// Default: 60 segundos.
   int productPollingStaleSeconds = 60;
 
+  /// Cantidad maxima permitida de un mismo producto en el carrito.
+  int maxCartItemQuantity = 10;
+
+  /// Tiempo sin interaccion antes de iniciar una nueva sesion.
+  int customerSessionTimeoutSeconds = 60;
+
   int get merchantId => merchantIds.isNotEmpty ? merchantIds.first : 0;
   static String customerName = dotenv.env['NAME_MESERO'] ?? 'Robot Mesero';
   static int qrExpirationMinutes =
@@ -52,24 +58,36 @@ class AppSettings {
   }
 
   void applyFallback() {
-    baseUrl = dotenv.env['BASE_URL'] ?? _defaults.baseUrl;
-    bearerToken = dotenv.env['BEARER_TOKEN'] ?? _defaults.bearerToken;
+    baseUrl = dotenv.env['BASE_URL'] ?? _Defaults.baseUrl;
+    bearerToken = dotenv.env['BEARER_TOKEN'] ?? _Defaults.bearerToken;
     ecosystemBaseUrl =
-        dotenv.env['ECOSYSTEM_BASE_URL'] ?? _defaults.ecosystemBaseUrl;
+        dotenv.env['ECOSYSTEM_BASE_URL'] ?? _Defaults.ecosystemBaseUrl;
     ecosystemBearerToken =
-        dotenv.env['ECOSYSTEM_BEARER_TOKEN'] ?? _defaults.ecosystemBearerToken;
+        dotenv.env['ECOSYSTEM_BEARER_TOKEN'] ?? _Defaults.ecosystemBearerToken;
     merchantIds = dotenv.env['MERCHANT_IDS']
             ?.split(',')
             .map((e) => int.parse(e.trim()))
             .toList() ??
-        _defaults.merchantIds;
+        _Defaults.merchantIds;
     productId =
-        int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _defaults.productId;
-    baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _defaults.baseUrlVpn;
-    portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _defaults.portVpn;
+        int.tryParse(dotenv.env['PRODUCT_ID'] ?? '') ?? _Defaults.productId;
+    baseUrlVpn = dotenv.env['BASE_URL_VPN'] ?? _Defaults.baseUrlVpn;
+    portVpn = int.tryParse(dotenv.env['PORT_VPN'] ?? '') ?? _Defaults.portVpn;
     productPollingStaleSeconds =
         int.tryParse(dotenv.env['PRODUCT_POLLING_STALE_SECONDS'] ?? '') ??
-            _defaults.productPollingStaleSeconds;
+            _Defaults.productPollingStaleSeconds;
+    final configuredMaxCartQuantity =
+        int.tryParse(dotenv.env['MAX_CART_ITEM_QUANTITY'] ?? '');
+    maxCartItemQuantity = configuredMaxCartQuantity != null &&
+            configuredMaxCartQuantity > 0
+        ? configuredMaxCartQuantity
+        : _Defaults.maxCartItemQuantity;
+    final configuredSessionTimeout =
+        int.tryParse(dotenv.env['CUSTOMER_SESSION_TIMEOUT_SECONDS'] ?? '');
+    customerSessionTimeoutSeconds = configuredSessionTimeout != null &&
+            configuredSessionTimeout > 0
+        ? configuredSessionTimeout
+        : _Defaults.customerSessionTimeoutSeconds;
     enableImageCache = true;
     // Whitelist: solo mostrar los productos con estos IDs
     filterConfig = ProductFilterConfig(
@@ -84,7 +102,7 @@ class AppSettings {
 }
 
 /// Valores por defecto cuando no hay config guardada.
-abstract final class _defaults {
+abstract final class _Defaults {
   static const String baseUrl = 'https://api-totem.nexuspatiotech.com/api';
   static const String bearerToken = '';
   static const String ecosystemBaseUrl =
@@ -95,4 +113,6 @@ abstract final class _defaults {
   static const String baseUrlVpn = "100.99.244.72";
   static const int portVpn = 5050;
   static const int productPollingStaleSeconds = 60;
+  static const int maxCartItemQuantity = 10;
+  static const int customerSessionTimeoutSeconds = 60;
 }

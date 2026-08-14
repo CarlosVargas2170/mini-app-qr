@@ -15,6 +15,7 @@ class QrPaymentState extends Equatable {
   final int? orderId;
   final String? errorMessage;
   final bool isPolling;
+  final double? amount;
 
   const QrPaymentState({
     this.status = QrPaymentStatus.initial,
@@ -22,6 +23,7 @@ class QrPaymentState extends Equatable {
     this.orderId,
     this.errorMessage,
     this.isPolling = false,
+    this.amount,
   });
 
   static const _absent = Object();
@@ -32,6 +34,7 @@ class QrPaymentState extends Equatable {
     Object? orderId = _absent,
     String? errorMessage,
     bool? isPolling,
+    Object? amount = _absent,
   }) {
     return QrPaymentState(
       status: status ?? this.status,
@@ -39,6 +42,7 @@ class QrPaymentState extends Equatable {
       orderId: orderId == _absent ? this.orderId : orderId as int?,
       errorMessage: errorMessage ?? this.errorMessage,
       isPolling: isPolling ?? this.isPolling,
+      amount: amount == _absent ? this.amount : amount as double?,
     );
   }
 
@@ -49,5 +53,6 @@ class QrPaymentState extends Equatable {
         orderId,
         errorMessage,
         isPolling,
+        amount,
       ];
 }

@@ -20,7 +20,9 @@ class HomeCubit extends Cubit<HomeState> {
   DateTime? _lastPollTimestamp;
 
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
-  static const _inactivityTimeout = Duration(seconds: 300);
+  Duration get _inactivityTimeout => Duration(
+        seconds: AppSettings().customerSessionTimeoutSeconds,
+      );
 
   HomeCubit({
     required GetProductsUseCase getProducts,
@@ -29,6 +31,68 @@ class HomeCubit extends Cubit<HomeState> {
         _getMerchant = getMerchant,
         super(const HomeState()) {
     load();
+  }
+
+  void incrementProduct(Product product) {
+    final quantities = Map<String, int>.from(state.cartQuantities);
+    final key = HomeState.cartKey(product);
+    final currentQuantity = quantities[key] ?? 0;
+    if (currentQuantity >= AppSettings().maxCartItemQuantity) {
+      registerCartInteraction();
+      return;
+    }
+    quantities[key] = currentQuantity + 1;
+    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+    registerCartInteraction();
+  }
+
+  void decrementProduct(Product product) {
+    final quantities = Map<String, int>.from(state.cartQuantities);
+    final key = HomeState.cartKey(product);
+    final currentQuantity = quantities[key] ?? 0;
+    if (currentQuantity <= 0) return;
+    final nextQuantity = currentQuantity - 1;
+    if (nextQuantity <= 0) {
+      quantities.remove(key);
+    } else {
+      quantities[key] = nextQuantity;
+    }
+    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+    registerCartInteraction();
+  }
+
+  void removeProductFromCart(Product product) {
+    final quantities = Map<String, int>.from(state.cartQuantities)
+      ..remove(HomeState.cartKey(product));
+    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+    registerCartInteraction();
+  }
+
+  void clearCart() {
+    if (state.cartQuantities.isEmpty) return;
+    emit(state.copyWith(cartQuantities: const {}));
+    registerCartInteraction();
+  }
+
+  /// Reinicia el timeout mientras el cliente interactua con el carrito.
+  void registerCartInteraction() {
+    if (state.displayMode != DisplayMode.product) return;
+    _cancelInactivityTimer();
+    _startInactivityTimer(_inactivityTimeout);
+  }
+
+  /// Pausa la sesion de la home mientras otra pantalla controla el flujo.
+  void pauseCustomerSessionTimeout() {
+    _cancelInactivityTimer();
+    debugPrint('[HomeCubit] Timeout de sesion pausado');
+  }
+
+  /// Reanuda el timeout solo si el cliente regreso al catalogo.
+  void resumeCustomerSessionTimeout() {
+    if (isClosed || state.displayMode != DisplayMode.product) return;
+    _cancelInactivityTimer();
+    _startInactivityTimer(_inactivityTimeout);
+    debugPrint('[HomeCubit] Timeout de sesion reanudado');
   }
 
   Future<void> load() async {
@@ -59,6 +123,7 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.copyWith(
         status: HomeStatus.loaded,
         displayMode: DisplayMode.attract,
+        cartQuantities: const {},
         products: filteredProducts,
         currentIndex: 0,
         merchantName: result.merchantName,
@@ -135,7 +200,7 @@ class HomeCubit extends Cubit<HomeState> {
           }
         }
 
-        if (allProducts.isEmpty) {
+        if (loadedMerchantIds.isEmpty) {
           throw Exception(
               'No se pudieron cargar productos de ningun merchant.\n${errors.join('\n')}');
         }
@@ -251,7 +316,12 @@ class HomeCubit extends Cubit<HomeState> {
 
       // Comparar con los productos actuales para detectar cambios
       final currentProducts = state.products;
-      if (_listsAreIdentical(currentProducts, freshProducts)) {
+      final cartSync = _reconcileCart(currentProducts, freshProducts);
+      final productsChanged =
+          !_listsAreIdentical(currentProducts, freshProducts);
+      final cartChanged =
+          !_cartMapsAreEqual(state.cartQuantities, cartSync.quantities);
+      if (!productsChanged && !cartChanged) {
         // Sin cambios: actualizar timestamp pero no emitir estado
         debugPrint('[HomeCubit] [OK] Polling: sin cambios detectados');
         _lastPollTimestamp = DateTime.now();
@@ -300,6 +370,11 @@ class HomeCubit extends Cubit<HomeState> {
         status: HomeStatus.loaded,
         products: freshProducts,
         currentIndex: newIndex,
+        cartQuantities: Map.unmodifiable(cartSync.quantities),
+        cartSyncMessage: cartSync.message,
+        cartSyncRevision: cartSync.message == null
+            ? state.cartSyncRevision
+            : state.cartSyncRevision + 1,
         merchantName: result.merchantName,
         merchantNames: result.merchantNames,
         merchantIds: result.merchantIds,
@@ -320,6 +395,64 @@ class HomeCubit extends Cubit<HomeState> {
   ///
   /// Compara: orden, IDs, y campos relevantes (nombre, precio, oldPrice,
   /// descripción, urlImage, merchantId).
+  _CartSyncResult _reconcileCart(
+    List<Product> currentProducts,
+    List<Product> freshProducts,
+  ) {
+    final currentByKey = {
+      for (final product in currentProducts) HomeState.cartKey(product): product,
+    };
+    final freshByKey = {
+      for (final product in freshProducts) HomeState.cartKey(product): product,
+    };
+    final quantities = <String, int>{};
+    final removedNames = <String>[];
+    final priceChangedNames = <String>[];
+
+    for (final entry in state.cartQuantities.entries) {
+      if (entry.value <= 0) continue;
+      final freshProduct = freshByKey[entry.key];
+      if (freshProduct == null) {
+        removedNames.add(currentByKey[entry.key]?.name ?? 'Un producto');
+        continue;
+      }
+
+      quantities[entry.key] = entry.value;
+      final previousProduct = currentByKey[entry.key];
+      if (previousProduct != null &&
+          previousProduct.price != freshProduct.price) {
+        priceChangedNames.add(freshProduct.name);
+      }
+    }
+
+    final messages = <String>[];
+    if (removedNames.isNotEmpty) {
+      final availability = removedNames.length == 1
+          ? 'ya no está disponible y fue retirado'
+          : 'ya no están disponibles y fueron retirados';
+      messages.add('${removedNames.join(', ')} $availability del carrito.');
+    }
+    if (priceChangedNames.isNotEmpty) {
+      messages.add(
+        'Se actualizó el precio de ${priceChangedNames.join(', ')}. '
+        'Revisa el nuevo total.',
+      );
+    }
+
+    return _CartSyncResult(
+      quantities: quantities,
+      message: messages.isEmpty ? null : messages.join(' '),
+    );
+  }
+
+  bool _cartMapsAreEqual(Map<String, int> a, Map<String, int> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
   bool _listsAreIdentical(List<Product> a, List<Product> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
@@ -404,6 +537,7 @@ class HomeCubit extends Cubit<HomeState> {
     emit(state.copyWith(
       displayMode: DisplayMode.attract,
       attractGifAsset: gifAsset ?? state.attractGifAsset,
+      cartQuantities: const {},
     ));
     debugPrint(
         '[HomeCubit] Estado emitido: displayMode=attract, gif=${gifAsset ?? state.attractGifAsset}');
@@ -469,7 +603,10 @@ class HomeCubit extends Cubit<HomeState> {
     debugPrint('[HomeCubit] showIdle() llamado');
     _cancelInactivityTimer();
 
-    emit(state.copyWith(displayMode: DisplayMode.idle));
+    emit(state.copyWith(
+      displayMode: DisplayMode.idle,
+      cartQuantities: const {},
+    ));
     debugPrint('[HomeCubit] Estado emitido: displayMode=idle');
 
     if (state.status == HomeStatus.error) {
@@ -494,6 +631,7 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.copyWith(
         displayMode: DisplayMode.product,
         currentIndex: 0,
+        cartQuantities: const {},
       ));
       debugPrint(
           '[HomeCubit] Estado emitido: displayMode=product + currentIndex=0');
@@ -509,6 +647,7 @@ class HomeCubit extends Cubit<HomeState> {
         emit(state.copyWith(
           displayMode: DisplayMode.product,
           currentIndex: 0,
+          cartQuantities: const {},
         ));
         debugPrint(
             '[HomeCubit] Recarga OK -> displayMode=product + currentIndex=0');
@@ -525,6 +664,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   void _startInactivityTimer([Duration? timeout]) {
     final duration = timeout ?? _inactivityTimeout;
+    _inactivityTimer?.cancel();
     debugPrint(
         '[HomeCubit] Timer de inactividad iniciado (${duration.inSeconds}s)');
     _inactivityTimer = Timer(duration, () {
@@ -549,4 +689,14 @@ class HomeCubit extends Cubit<HomeState> {
     _cancelInactivityTimer();
     return super.close();
   }
+}
+
+class _CartSyncResult {
+  final Map<String, int> quantities;
+  final String? message;
+
+  const _CartSyncResult({
+    required this.quantities,
+    required this.message,
+  });
 }

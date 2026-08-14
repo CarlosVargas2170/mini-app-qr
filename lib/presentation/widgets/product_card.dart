@@ -5,7 +5,12 @@ import 'app_image.dart';
 class ProductCard extends StatefulWidget {
   final Product product;
   final bool fill;
-  const ProductCard({super.key, required this.product, this.fill = false});
+
+  const ProductCard({
+    super.key,
+    required this.product,
+    this.fill = false,
+  });
 
   @override
   State<ProductCard> createState() => _ProductCardState();

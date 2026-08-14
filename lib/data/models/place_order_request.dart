@@ -50,21 +50,26 @@ class PlaceOrderRequestDto {
   List<Map<String, dynamic>> _buildItems() {
     final grouped = <String, Map<String, dynamic>>{};
     for (final item in cartItems) {
-      final name = (item['name'] as String? ?? '').toLowerCase().trim();
+      final name = (item['name'] as String? ?? '').trim();
       if (name.isEmpty) continue;
+      final productId = (item['id'] as num?)?.toInt();
+      final key = productId != null && productId > 0
+          ? 'id:$productId'
+          : 'name:${name.toLowerCase()}';
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-      if (grouped.containsKey(name)) {
-        grouped[name]!['quantity'] =
-            (grouped[name]!['quantity'] as int) + qty;
+      if (grouped.containsKey(key)) {
+        grouped[key]!['quantity'] =
+            (grouped[key]!['quantity'] as int) + qty;
       } else {
-        grouped[name] = Map<String, dynamic>.from(item)..['quantity'] = qty;
+        grouped[key] = Map<String, dynamic>.from(item)..['quantity'] = qty;
       }
     }
 
     return grouped.values.map((item) {
       final name = item['name'] as String;
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-      final product = _findProduct(name);
+      final itemProductId = (item['id'] as num?)?.toInt();
+      final product = _findProduct(itemProductId, name);
       final price = product?['price'] != null
           ? (product!['price'] as num).toDouble()
           : (item['price'] as num?)?.toDouble() ?? 0.0;
@@ -91,7 +96,7 @@ class PlaceOrderRequestDto {
     }).toList();
   }
 
-  Map<String, dynamic>? _findProduct(String productName) {
+  Map<String, dynamic>? _findProduct(int? productId, String productName) {
     final categories = menuData?['categories'] as List<dynamic>?;
     if (categories == null) return null;
     final nameLower = productName.toLowerCase();
@@ -101,6 +106,11 @@ class PlaceOrderRequestDto {
       if (products == null) continue;
       for (final prod in products) {
         final p = prod as Map<String, dynamic>;
+        if (productId != null &&
+            productId > 0 &&
+            (p['id'] as num?)?.toInt() == productId) {
+          return p;
+        }
         if ((p['name'] as String?)?.toLowerCase() == nameLower) return p;
       }
     }

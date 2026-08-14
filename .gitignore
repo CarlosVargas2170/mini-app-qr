@@ -49,6 +49,5 @@ app.*.map.json
 /windows/*
 /dist/*
 /remote-control/*
-/test/*
 /linux/*
 AGENTS.md

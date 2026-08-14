@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../domain/entities/product.dart';
 import '../../domain/entities/order_status.dart';
 import '../../domain/usecases/complete_order.dart';
 import '../../domain/usecases/get_payment_status.dart';
@@ -73,49 +74,63 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
 
     try {
       // ── Validación pre-pago: verificar que el producto siga existiendo ──
-      double validatedAmount = amount;
+      final validatedCartItems = cartItems
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(growable: false);
+      final validatedMenuData = _copyMenuData(menuData);
+      var validatedAmount = 0.0;
 
-      try {
-        final freshProduct = await _getProduct(merchantId, productId);
-        debugPrint('[QrPaymentCubit] Producto validado: "${freshProduct.name}" '
-            'precio API=${freshProduct.price}, precio local=$amount');
+      for (final item in validatedCartItems) {
+        final itemName = (item['name'] as String? ?? 'Producto').trim();
+        final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+        final resolvedProductId = _resolveProductId(
+          item: item,
+          menuData: validatedMenuData,
+          fallbackProductId:
+              validatedCartItems.length == 1 ? productId : null,
+        );
 
-        if (freshProduct.price != amount) {
-          debugPrint(
-              '[QrPaymentCubit] ⚠️ Precio desactualizado: local=$amount → API=${freshProduct.price}. '
-              'Usando precio actualizado.');
-          validatedAmount = freshProduct.price;
-
-          // Actualizar cartItems con el precio fresco
-          for (final item in cartItems) {
-            item['price'] = freshProduct.price;
-          }
-
-          // Actualizar menuData con el precio fresco
-          final menu = menuData;
-          if (menu != null) {
-            final categories = menu['categories'] as List?;
-            if (categories != null && categories.isNotEmpty) {
-              final firstCategory = categories.first as Map?;
-              final products = firstCategory?['products'] as List?;
-              if (products != null && products.isNotEmpty) {
-                final firstProduct = products.first as Map?;
-                if (firstProduct != null) {
-                  firstProduct['price'] = freshProduct.price;
-                  firstProduct['name'] = freshProduct.name;
-                  firstProduct['urlImage'] = freshProduct.urlImage;
-                  firstProduct['description'] = freshProduct.description;
-                }
-              }
-            }
-          }
+        if (quantity <= 0 || resolvedProductId == null) {
+          emit(state.copyWith(
+            status: QrPaymentStatus.failed,
+            errorMessage: 'El pedido contiene un producto inválido.',
+          ));
+          return;
         }
-      } catch (e) {
-        debugPrint('[QrPaymentCubit] ❌ Producto $productId no encontrado: $e');
+
+        try {
+          final freshProduct = await _getProduct(merchantId, resolvedProductId);
+          final previousPrice = (item['price'] as num?)?.toDouble();
+          debugPrint(
+            '[QrPaymentCubit] Producto validado: "${freshProduct.name}" '
+            'cantidad=$quantity precio API=${freshProduct.price} '
+            'precio local=$previousPrice',
+          );
+
+          item
+            ..['id'] = freshProduct.id
+            ..['name'] = freshProduct.name
+            ..['price'] = freshProduct.price;
+          _updateMenuProduct(validatedMenuData, freshProduct);
+          validatedAmount += freshProduct.price * quantity;
+        } catch (e) {
+          debugPrint(
+            '[QrPaymentCubit] Producto $resolvedProductId no disponible: $e',
+          );
+          emit(state.copyWith(
+            status: QrPaymentStatus.failed,
+            errorMessage:
+                '"$itemName" ya no está disponible.\nVuelve al carrito para revisar tu pedido.',
+          ));
+          return;
+        }
+      }
+
+      validatedAmount = double.parse(validatedAmount.toStringAsFixed(2));
+      if (validatedAmount <= 0) {
         emit(state.copyWith(
           status: QrPaymentStatus.failed,
-          errorMessage:
-              'Este producto ya no está disponible.\nPor favor elige otro.',
+          errorMessage: 'El total del pedido no es válido.',
         ));
         return;
       }
@@ -126,8 +141,8 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         customerName: customerName,
         phoneNumber: phoneNumber,
         whereEat: whereEat,
-        cartItems: cartItems,
-        menuData: menuData,
+        cartItems: validatedCartItems,
+        menuData: validatedMenuData,
         amount: validatedAmount,
         paymentReferenceOverride: paymentReferenceOverride,
       );
@@ -136,6 +151,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         status: QrPaymentStatus.qrReady,
         orderId: order.orderId,
         qrBase64: order.qrBase64,
+        amount: validatedAmount,
       ));
 
       if (autoPoll) {
@@ -147,6 +163,74 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         status: QrPaymentStatus.failed,
         errorMessage: 'No se pudo generar el QR de pago. Intenta de nuevo.',
       ));
+    }
+  }
+
+  Map<String, dynamic>? _copyMenuData(Map<String, dynamic>? menuData) {
+    if (menuData == null) return null;
+    final copy = Map<String, dynamic>.from(menuData);
+    final categories = menuData['categories'] as List?;
+    if (categories != null) {
+      copy['categories'] = categories.map((category) {
+        final categoryCopy = Map<String, dynamic>.from(category as Map);
+        final products = categoryCopy['products'] as List?;
+        if (products != null) {
+          categoryCopy['products'] = products
+              .map((product) => Map<String, dynamic>.from(product as Map))
+              .toList();
+        }
+        return categoryCopy;
+      }).toList();
+    }
+    return copy;
+  }
+
+  int? _resolveProductId({
+    required Map<String, dynamic> item,
+    required Map<String, dynamic>? menuData,
+    int? fallbackProductId,
+  }) {
+    final itemId = (item['id'] as num?)?.toInt();
+    if (itemId != null && itemId > 0) return itemId;
+
+    final itemName = (item['name'] as String? ?? '').toLowerCase().trim();
+    final categories = menuData?['categories'] as List?;
+    if (categories != null) {
+      for (final category in categories) {
+        final products = (category as Map)['products'] as List?;
+        if (products == null) continue;
+        for (final product in products) {
+          final productMap = product as Map;
+          final name =
+              (productMap['name'] as String? ?? '').toLowerCase().trim();
+          if (name == itemName) {
+            return (productMap['id'] as num?)?.toInt();
+          }
+        }
+      }
+    }
+    return fallbackProductId;
+  }
+
+  void _updateMenuProduct(
+    Map<String, dynamic>? menuData,
+    Product freshProduct,
+  ) {
+    final categories = menuData?['categories'] as List?;
+    if (categories == null) return;
+    for (final category in categories) {
+      final products = (category as Map)['products'] as List?;
+      if (products == null) continue;
+      for (final product in products) {
+        final productMap = product as Map;
+        if ((productMap['id'] as num?)?.toInt() == freshProduct.id) {
+          productMap['name'] = freshProduct.name;
+          productMap['price'] = freshProduct.price;
+          productMap['urlImage'] = freshProduct.urlImage;
+          productMap['description'] = freshProduct.description;
+          return;
+        }
+      }
     }
   }
 

@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+
+import '../../core/config/app_settings.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/entities/order_status.dart';
 import '../../domain/repositories/qr_payment_repository.dart';
@@ -5,9 +8,6 @@ import '../datasources/qr_payment_remote_data_source.dart';
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
 import '../models/update_order_request.dart';
-import '../../core/config/app_settings.dart';
-
-
 class QrPaymentRepositoryImpl implements QrPaymentRepository {
   final QrPaymentRemoteDataSource _remote;
 
@@ -38,14 +38,15 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
     final orderResponse = await _remote.placeOrderPending(request);
     final orderId = orderResponse.orderId;
 
-    print('[QR_REPO] Orden creada: orderId=$orderId, amount=$amount, merchantId=$merchantId');
+    debugPrint(
+        '[QR_REPO] Orden creada: orderId=$orderId, amount=$amount, merchantId=$merchantId');
 
     final qrRequest = GeneratePaymentQrRequestDto(
       amount: amount,
       merchantId: merchantId,
       orderId: orderId,
     );
-    print('[QR_REPO] Generando QR con body: ${qrRequest.toJson()}');
+    debugPrint('[QR_REPO] Generando QR con body: ${qrRequest.toJson()}');
 
     final qrResponse = await _remote.generatePaymentQr(qrRequest);
 
