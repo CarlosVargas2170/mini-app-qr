@@ -21,6 +21,8 @@
 | `NAME_MESERO` | Texto | `Robot Mesero` | Nombre de cliente por defecto en órdenes. |
 | `QR_EXPIRATION_MINUTES` | Entero positivo | `3` | TTL de la caché de QR del panel embebido y texto informativo. |
 | `PRODUCT_POLLING_STALE_SECONDS` | Entero | `60` | Antigüedad mínima para polling bajo demanda; `<= 0` lo deshabilita. |
+| `MAX_CART_ITEM_QUANTITY` | Entero positivo | `10` | Cantidad máxima permitida de un mismo producto en el carrito. |
+| `CUSTOMER_SESSION_TIMEOUT_SECONDS` | Entero positivo | `60` | Tiempo sin interacción antes de que la sesión del cliente finalice y la pantalla vuelva a atracción. |
 
 Los tokens vacíos permiten arrancar, pero `AppSettings.isConfigured` exige `BASE_URL`, `BEARER_TOKEN`, al menos un merchant y `PRODUCT_ID != 0`. El flujo principal no consulta actualmente `isConfigured` antes de iniciar.
 
@@ -40,6 +42,8 @@ PORT_VPN=5050
 NAME_MESERO=Robot Mesero
 QR_EXPIRATION_MINUTES=3
 PRODUCT_POLLING_STALE_SECONDS=60
+MAX_CART_ITEM_QUANTITY=10
+CUSTOMER_SESSION_TIMEOUT_SECONDS=60
 ```
 
 `.env` está declarado como asset en `pubspec.yaml`: sus valores se incluyen en el bundle compilado. No debe considerarse un almacén secreto fuerte. Si los tokens son sensibles, conviene entregar credenciales de corta duración o usar almacenamiento/inyectado de secretos apropiado para el entorno.

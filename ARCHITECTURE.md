@@ -76,7 +76,7 @@ configuración, inyección, servidor HTTP, audio, cachés y bus de comandos.
 Contiene todo lo relacionado con la experiencia visible y su estado:
 
 - Las páginas principales, como `HomePage` y `QrPaymentPage`.
-- Widgets del carrusel, tarjetas de producto, QR, resultados y overlays de audio.
+- Widgets del carrusel, tarjetas de producto, QR, resultados, overlays de audio, selector de cantidad y carrito flotante.
 - `HomeCubit`, encargado del catálogo y de los modos visuales de la pantalla principal.
 - `QrPaymentCubit`, encargado del ciclo de vida del pago.
 - Los estados inmutables emitidos por ambos Cubits.
@@ -205,7 +205,7 @@ mini-app-qr/
 
 - `bloc/`: Cubits y estados de la pantalla principal y del pago QR.
 - `pages/`: pantallas que organizan los flujos completos.
-- `widgets/`: componentes visuales reutilizables y especializados.
+- `widgets/`: componentes visuales reutilizables y especializados, incluyendo carrusel, tarjetas, selector de cantidad (`ProductQuantitySelector`) y carrito flotante (`FloatingCart`).
 
 ### 4.5 Recursos y scripts
 
@@ -646,9 +646,18 @@ El estado guarda:
 - Índice y producto actualmente seleccionados.
 - Nombre general y nombres individuales de merchants.
 - IDs de merchants cargados exitosamente.
+- Cantidades del carrito (`cartQuantities`), mapeadas por clave `merchantId_productId`.
+- Mensaje de sincronización del carrito (`cartSyncMessage`) y su revisión (`cartSyncRevision`).
 - Mensaje de error.
 - Fecha del último polling exitoso.
 - Asset del GIF de atracción.
+
+`HomeState` expone además:
+
+- `quantityFor(Product)`: cantidad seleccionada de un producto.
+- `cartProducts`: lista de productos con cantidad mayor a cero.
+- `cartTotalItems`: suma de unidades en el carrito.
+- `cartTotal`: monto total calculado con precios y cantidades actuales.
 
 `HomeState` extiende `Equatable`, de modo que dos estados se comparan por el valor de sus propiedades. Sus colecciones se tratan como datos del estado y se reemplazan al actualizar el catálogo.
 
@@ -668,7 +677,17 @@ cualquier modo ─ showIdle() → idle
 cualquier modo ─ showAttract() → attract
 ```
 
-Al mover el carrusel, `updateCurrentIndex()` emite el índice nuevo y reinicia el temporizador de inactividad. El timeout predeterminado es de 300 segundos. Cuando vence, el Cubit vuelve a `attract`.
+Al mover el carrusel, `updateCurrentIndex()` emite el índice nuevo y reinicia el temporizador de inactividad. El timeout se lee de `AppSettings().customerSessionTimeoutSeconds` (fallback 60 segundos). Cuando vence, el Cubit vuelve a `attract`.
+
+`HomeCubit` expone operaciones de carrito:
+
+- `incrementProduct(Product)`: aumenta la cantidad hasta `maxCartItemQuantity`.
+- `decrementProduct(Product)`: reduce la cantidad; si llega a cero elimina la entrada.
+- `removeProductFromCart(Product)`: elimina directamente un producto del carrito.
+- `clearCart()`: vacía todas las cantidades.
+- `registerCartInteraction()`: reinicia el timer de inactividad mientras el usuario opera el carrito.
+- `pauseCustomerSessionTimeout()`: detiene el timer; se usa antes de navegar al pago.
+- `resumeCustomerSessionTimeout()`: reanuda el timer cuando se regresa al catálogo.
 
 `showProductResetCarousel()` realiza la misma entrada al catálogo, pero fuerza `currentIndex = 0`. Antes de mostrar productos, tanto este método como `showProduct()` comprueban si los datos necesitan actualizarse.
 
@@ -683,6 +702,7 @@ Al mover el carrusel, `updateCurrentIndex()` emite el índice nuevo y reinicia e
 | `orderId` | Orden activa en el backend. |
 | `errorMessage` | Mensaje recuperable para la UI. |
 | `isPolling` | Indica si el timer de consulta está activo. |
+| `amount` | Monto final validado y cobrado; puede diferir del monto inicial si los precios cambiaron. |
 
 Los valores de `QrPaymentStatus` son:
 
@@ -753,17 +773,20 @@ El carrusel recibe la lista visible y el índice actual. Cuando el usuario cambi
 
 ### 12.4 Inicio del pago desde la interfaz
 
-Al presionar **PAGAR CON QR**:
+Al presionar **PAGAR PEDIDO CON QR**:
 
-1. Se obtiene `state.currentProduct`.
-2. Se cierra cualquier Cubit de pago anterior.
-3. Se crea un `QrPaymentCubit` nuevo.
-4. Se construye un carrito de una unidad con nombre, cantidad y precio.
-5. Se construye `menuData` con el nombre del merchant y los datos visibles del producto.
-6. Se navega a `QrPaymentPage`, entregándole el Cubit y los datos anteriores.
-7. Después del primer frame, la página llama a `startQrPayment()`.
+1. Se verifica que el carrito no esté vacío (`cartTotalItems > 0`).
+2. Se pausa el timeout de sesión del `HomeCubit`.
+3. Se fuerza un polling de productos para reconciliar el carrito con el catálogo más reciente.
+4. Si el carrito fue ajustado o quedó vacío tras el polling, se reanuda el timeout y se muestra el aviso de sincronización.
+5. Se cierra cualquier Cubit de pago anterior.
+6. Se crea un `QrPaymentCubit` nuevo.
+7. Se construye `cartItems` con todos los productos del carrito, sus cantidades y precios actuales.
+8. Se construye `menuData` con el nombre del merchant y los datos visibles de cada producto.
+9. Se navega a `QrPaymentPage`, entregándole el Cubit, el merchant del primer producto, el monto total y los datos anteriores.
+10. Después del primer frame, la página llama a `startQrPayment()`.
 
-La página muestra inicialmente un indicador con el mensaje “Generando código QR...”. Cuando el estado llega a `qrReady`, presenta el QR, el monto y el contador visual.
+La página muestra inicialmente un indicador con el mensaje “Verificando pedido y generando QR...”. Cuando el estado llega a `qrReady`, presenta el QR, el monto y el contador visual.
 
 ### 12.5 Contador visual del pago
 
@@ -827,14 +850,16 @@ Los comandos `StartPaymentPolling` y `StopPaymentPolling` no son procesados dire
 
 ## 13. Generación del QR y flujo de pagos
 
-El pago comienza validando nuevamente el producto contra su proveedor. Si ya no existe, el Cubit emite `failed`; si cambió de precio, actualiza el monto, el carrito y `menuData` antes de crear la orden. Esta validación reduce el riesgo de cobrar información obsoleta del carrusel.
+El pago comienza validando cada producto del carrito contra su proveedor. `QrPaymentCubit` itera sobre `cartItems`, resuelve el `productId` de cada ítem (por ID explícito o por nombre dentro de `menuData`), y consulta el producto fresco mediante `_getProduct()`. Si algún producto ya no existe, el Cubit emite `failed` con un mensaje que indica qué ítem dejó de estar disponible. Si cambió de precio, actualiza el monto local de ese ítem y recalcula el total antes de crear la orden. Esta validación reduce el riesgo de cobrar información obsoleta del carrusel.
+
+El monto final se redondea a dos decimales y se guarda en `QrPaymentState.amount`. Si el total validado es menor o igual a cero, el flujo se detiene con `failed`.
 
 Después, `QrPaymentRepositoryImpl` realiza dos operaciones secuenciales:
 
 1. `POST /orders/create-pending` crea la orden pendiente.
 2. `POST /payments/qr/generate-payment` recibe `amount`, `merchantId` y `orderId`, y devuelve el QR.
 
-La referencia de pago usa el valor sobrescrito por el llamador o genera `TOTEM-{timestamp}`. El carrito agrupa ítems por nombre, calcula subtotal y total, no aplica impuesto y usa `qr` como método de pago. La estructura exacta se encuentra en [API.md](docs/API.md).
+La referencia de pago usa el valor sobrescrito por el llamador o genera `TOTEM-{timestamp}`. El carrito agrupa ítems por `id` cuando está disponible, o por nombre en minúsculas como fallback. Calcula subtotal y total, no aplica impuesto y usa `qr` como método de pago. La estructura exacta se encuentra en [API.md](docs/API.md).
 
 `QrImageWidget` acepta una URL HTTP o una cadena Base64, con o sin prefijo de data URI. Si no puede decodificarla, presenta un fallback visual. La aplicación no construye criptográficamente el QR: solicita al backend la imagen o representación ya generada.
 
@@ -875,6 +900,14 @@ En el panel embebido, una solicitud manual recibida antes de que termine la gene
 No existe un timer periódico permanente para productos. El polling es bajo demanda al entrar al catálogo y solo ocurre cuando transcurrieron al menos `PRODUCT_POLLING_STALE_SECONDS`. Un valor menor o igual a cero lo deshabilita.
 
 También puede forzarse sin considerar el umbral. La comparación considera longitud, orden, ID, merchant, nombre, precio, precio anterior, descripción e imagen. Sin cambios solo actualiza el timestamp interno; con cambios reemplaza estado y caché, conserva el producto activo por ID y mantiene el modo visual. Un error conserva silenciosamente el catálogo anterior.
+
+Durante el polling, `HomeCubit` reconcilia el carrito con el catálogo fresco mediante `_reconcileCart()`:
+
+- Si un producto del carrito desaparece del catálogo, se elimina del carrito y se genera un mensaje de aviso.
+- Si un producto conservado cambió de precio, se mantiene la cantidad pero se genera un mensaje indicando que el precio fue actualizado.
+- Las cantidades se conservan para los productos que siguen disponibles sin cambios de precio.
+
+Los mensajes de sincronización se exponen en `HomeState.cartSyncMessage` y se muestran al usuario mediante un `SnackBar` cuando está en modo `product`. La revisión del mensaje (`cartSyncRevision`) permite distinguir avisos nuevos de los ya mostrados.
 
 ## 15. Servidor local, comandos y servicios compartidos
 
@@ -925,6 +958,9 @@ Los errores se registran principalmente con `debugPrint` y algunos `print`. No e
 - Contador, estado de polling, filtros, cachés de catálogo y QR viven en memoria.
 - La comparación de productos depende también del orden devuelto por la API.
 - `HomeState.currentProduct` asume un índice válido cuando la lista no está vacía; los layouts de catálogo esperan al menos un producto visible.
+- El carrito se vacía al entrar en modo `attract` o `idle`; no persiste entre sesiones de cliente.
+- La validación de productos antes del pago consulta la API por cada ítem del carrito, lo que aumenta la latencia de inicio proporcionalmente al número de productos.
+- El panel embebido (`ProductQrPanelWrapper`) mantiene su caché por `{merchantId}_{productId}`; el flujo multi-producto de la página dedicada no utiliza esta caché.
 - `assets/videos/` no está registrado en `pubspec.yaml`.
 - El argumento `port` de `AppServer` no controla el bind actual; prevalece `AppSettings().portVpn`.
 - La confirmación visual no espera que `completeOrder` termine correctamente.

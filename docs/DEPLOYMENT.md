@@ -17,6 +17,8 @@ flutter test
 dart format lib test
 ```
 
+La carpeta `test/` está versionada desde el commit `[TEST]-cart-checkout`. Las pruebas cubren modelos de datos, estados de Cubits, comportamiento del carrito y widgets de la interfaz.
+
 ## 2. Build Linux nativo
 
 En una máquina Linux con Flutter desktop habilitado:
