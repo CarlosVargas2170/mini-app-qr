@@ -302,6 +302,7 @@ class _HomeViewState extends State<_HomeView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                    const SizedBox(height: 56),
                     const Icon(Icons.coffee, color: AppColors.accent, size: 48),
                     const SizedBox(height: 16),
                     Text(
@@ -330,6 +331,17 @@ class _HomeViewState extends State<_HomeView> {
                     _buildPayButton(context, state),
                     const SizedBox(height: 68),
                       ],
+                    ),
+                    const Positioned(
+                      top: -68,
+                      left: 0,
+                      right: 0,
+                      child: Center(child: _MegacenterLogo()),
+                    ),
+                    const Positioned(
+                      left: 0,
+                      bottom: -4,
+                      child: _NexusTechnologySignature(),
                     ),
                     Positioned(
                       right: -20,
@@ -645,5 +657,82 @@ class _HomeViewState extends State<_HomeView> {
       homeCubit.resumeCustomerSessionTimeout();
       _showCartSyncNoticeIfNeeded(this.context, homeCubit.state);
     });
+  }
+}
+
+class _MegacenterLogo extends StatelessWidget {
+  const _MegacenterLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 144,
+      height: 144,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.borderLight, width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Image.asset(
+          'assets/images/logo_megacenter.jpg',
+          fit: BoxFit.contain,
+          semanticLabel: 'Logo Megacenter',
+        ),
+      ),
+    );
+  }
+}
+
+class _NexusTechnologySignature extends StatelessWidget {
+  const _NexusTechnologySignature();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 8, bottom: 2),
+          child: Text(
+            'Tecnología de',
+            style: TextStyle(
+              color: AppColors.textCaption,
+              fontSize: 11,
+              letterSpacing: .4,
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 150,
+          height: 58,
+          child: ClipRect(
+            child: OverflowBox(
+              minWidth: 210,
+              maxWidth: 210,
+              minHeight: 210,
+              maxHeight: 210,
+              child: Image(
+                image: AssetImage(
+                  'assets/images/logo_nexus_patio_tech.png',
+                ),
+                fit: BoxFit.contain,
+                semanticLabel: 'Logo Nexus Patio Tech',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
