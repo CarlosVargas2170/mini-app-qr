@@ -71,12 +71,348 @@ Core atraviesa la composición de la aplicación:
 configuración, inyección, servidor HTTP, audio, cachés y bus de comandos.
 ```
 
-### 3.1 Capa `presentation`
+---
+
+## Anexo A. Inventario de flujos del sistema
+
+El siguiente inventario reúne los flujos observados en `lib/`, distinguiendo los
+flujos iniciados por el cliente, por el operador remoto y por tareas internas.
+
+### A.1 Flujos de arranque e infraestructura
+
+1. **Arranque de la aplicación**: inicialización de Flutter y de la ventana,
+   carga de `.env`, aplicación de valores fallback, composición del service
+   locator, inicio concurrente de `AppServer` y construcción de `HomePage`.
+2. **Inicio del servidor local**: bind en `BASE_URL_VPN:PORT_VPN`, configuración
+   de CORS y despacho de peticiones HTTP a handlers internos.
+3. **Composición de dependencias**: creación de clientes Dio, data sources,
+   repositorios, casos de uso y factories; los Cubits se crean bajo demanda.
+4. **Ciclo de vida y liberación**: cancelación de timers, suscripciones y
+   Cubits al salir de páginas o cerrar la aplicación.
+
+### A.2 Flujos de catálogo y productos
+
+5. **Carga inicial del catálogo multi-merchant**: lectura de `MERCHANT_IDS`,
+   carga paralela por merchant, obtención secuencial de productos e información
+   del merchant, combinación de resultados y actualización de `ProductCache`.
+6. **Reintento y degradación parcial**: un reintento global después de dos
+   segundos; los merchants fallidos no bloquean los merchants exitosos, pero si
+   fallan todos se muestra error.
+7. **Resolución del proveedor**: consulta de configuración del merchant,
+   selección de `LegacyProductDataSource` o `EcosystemProductDataSource` y
+   cacheo del data source por `merchantId`.
+8. **Carga Legacy**: categorías con productos → aplanado → entidades `Product`.
+9. **Carga Ecosystem**: menú externo → descarte de ítems `inactive` → mapeo a
+   entidades `Product`; la búsqueda de un producto o del merchant descarga el
+   menú completo.
+10. **Filtrado de visibilidad**: habilitación de merchants y evaluación de
+    modos `all`, `blacklist` y `whitelist`, conservando separados catálogo
+    completo y catálogo visible.
+11. **Consulta administrativa de productos**: lectura HTTP de `ProductCache`,
+    agrupación por merchant y exposición de `visible`/`pinned` y totales.
+12. **Recarga completa**: llamada explícita, comando `ReloadProduct` o cambio
+    de merchant/producto; vuelve a ejecutar la carga inicial.
+13. **Polling bajo demanda de productos**: al mostrar el catálogo se comprueba
+    staleness; un polling forzado ignora el umbral.
+14. **Reconciliación del carrito**: comparación del catálogo fresco, eliminación
+    de productos desaparecidos, conservación de cantidades y aviso por cambios
+    de precio.
+
+### A.3 Flujos de interacción y navegación
+
+15. **Modo de atracción**: GIF actual, cancelación del timeout y vaciado del
+    carrito; puede activarse desde UI o mediante comando HTTP.
+16. **Entrada al catálogo**: muestra el carrusel, opcionalmente reinicia el
+    índice, verifica staleness y activa el timeout de sesión.
+17. **Modo reposo**: cancela el pago activo, cierra la ruta de pago, vacía el
+    carrito y muestra `Esperando...`.
+18. **Inactividad**: swipe o interacción del carrito reinicia el timer; al
+    vencer vuelve automáticamente a atracción.
+19. **Carrito**: incrementar, decrementar, eliminar, vaciar con confirmación,
+    aplicar máximo por producto y calcular unidades/total.
+20. **Comandos remotos de UI**: `AppServer` publica comandos en el bus broadcast;
+    `HomePage` los traduce a navegación y cambios de estado sin importar Cubits
+    desde infraestructura.
+21. **Audio y overlay**: petición local o remota → cooldown/force → reproducción
+    del asset → notificación visual opcional mediante `AudioNotificationService`.
+22. **Cambio de GIF**: `POST /attract/set` actualiza el nombre global, publica
+    `ShowAttract` y la UI cambia inmediatamente de asset.
+
+### A.4 Flujos de pago QR
+
+23. **Preparación del pago desde carrito**: valida carrito no vacío, pausa el
+    timeout, fuerza polling de productos y aborta si el carrito cambió o quedó
+    vacío.
+24. **Validación pre-pago**: resuelve el ID de cada ítem, consulta el producto
+    fresco, actualiza nombre/precio/menuData y recalcula el monto.
+25. **Creación del pago**: `POST /orders/create-pending` → `orderId` →
+    `POST /payments/qr/generate-payment` → QR.
+26. **Polling automático de página dedicada**: cada tres segundos consulta el
+    estado del pago; estados externos se normalizan a pendiente, confirmado o
+    fallido.
+27. **Confirmación y cierre**: detiene polling, dispara completion sin bloquear
+    la UI, reproduce agradecimiento, incrementa contador y retorna a atracción
+    después de cinco segundos.
+28. **Pago fallido**: detiene polling, limpia orden y QR cuando corresponde y
+    permite volver o reintentar si aún existe una orden.
+29. **Cancelación y salida**: `cancel()` emite `cancelled`; al hacer pop se usa
+    `stopPollingOnly()` para no sobrescribir un éxito ya mostrado.
+30. **Panel QR embebido**: generación sin polling, reutilización de caché por
+    `{merchantId}_{productId}`, activación manual por operador, éxito temporal,
+    invalidación y regeneración de QR.
+31. **Publicación del estado de pago**: `QrPaymentPage` o el panel sincronizan
+    `PaymentPollingStatus`, consultable desde `GET /payment/polling-status`.
+
+### A.5 Flujos de configuración, operación y despliegue
+
+32. **Configuración en runtime**: `GET /config` expone configuración y
+    `POST /config` modifica memoria; merchant/producto provoca reload y URLs,
+    tokens, host o puerto requieren reinicio.
+33. **Administración de filtros**: `POST /products/filter` cambia filtros en
+    memoria y opcionalmente emite reload; `reset` restaura el modo `all`.
+34. **Control operativo del contador**: incrementos después de pagos exitosos,
+    consulta junto al estado remoto y reinicio mediante `/payment/reset-counter`.
+35. **Ejecución y empaquetado**: desarrollo en Windows, build Linux, imagen o
+    scripts de instalación/kiosco y autostart.
+
+### A.6 Flujos que conviene vigilar especialmente
+
+- **Configuración sensible**: `GET /config` devuelve `bearerToken`; el servidor
+  local no tiene autenticación, TLS ni rate limiting.
+- **Configuración dinámica incompleta**: los clientes Dio y data sources
+  cacheados no se reconstruyen tras cambiar URLs o tokens.
+- **Consistencia del pago**: la UI muestra éxito aunque `completeOrder` falle;
+  se requiere logging/observabilidad externa para detectar ese caso.
+- **Carrera de comandos**: las respuestas HTTP confirman la emisión del comando,
+  no que la UI haya terminado de procesarlo.
+- **Estado volátil**: filtros, carrito, contador, cachés, QR y estado de polling
+  se pierden al reiniciar el proceso.
+
+## Anexo B. Diagramas recomendados
+
+Se priorizan los diagramas que explican el comportamiento de negocio y los
+puntos de integración. Todos pueden copiarse directamente a Markdown con
+soporte Mermaid.
+
+### B.1 Arquitectura y dependencias principales
+
+```mermaid
+flowchart LR
+    Client[Usuario / operador / robot]
+    UI[Presentation\nHomePage · QrPaymentPage · widgets]
+    Cubits[HomeCubit · QrPaymentCubit]
+    Domain[Domain\nUse cases · entidades · contratos]
+    Data[Data\nRepositorios · DTOs · data sources]
+    Legacy[API Legacy]
+    Eco[API Ecosystem]
+    Orders[API órdenes y pagos QR]
+    Server[AppServer\nHTTP local]
+    Bus[UiCommandBus]
+    Cache[ProductCache · PaymentPollingStatus]
+    Audio[AudioService · assets]
+
+    Client --> UI
+    Client --> Server
+    Server --> Bus
+    Bus --> UI
+    UI --> Cubits
+    Cubits --> Domain
+    Domain --> Data
+    Data --> Legacy
+    Data --> Eco
+    Data --> Orders
+    Cubits <--> Cache
+    UI --> Audio
+    Server --> Audio
+```
+
+### B.2 Arranque y carga inicial del catálogo
+
+```mermaid
+sequenceDiagram
+    participant Main as main.dart
+    participant Env as .env / AppSettings
+    participant DI as ServiceLocator
+    participant HTTP as AppServer
+    participant Home as HomeCubit
+    participant Repo as ProductRepository
+    participant APIs as APIs de merchants
+    participant Cache as ProductCache
+    participant UI as HomePage
+
+    Main->>Main: Inicializar Flutter y ventana
+    Main->>Env: Cargar .env y fallbacks
+    Main->>DI: init() con configuración cargada
+    Main->>HTTP: start() sin bloquear runApp
+    Main->>UI: runApp(HomePage)
+    UI->>Home: Crear Cubit
+    Home->>Home: Emitir loading
+    par Por cada merchant configurado
+        Home->>Repo: getProducts(merchantId)
+        Repo->>APIs: Resolver proveedor y consultar catálogo
+        APIs-->>Repo: Productos
+        Home->>Repo: getMerchantInfo(merchantId)
+        Repo->>APIs: Consultar información
+        APIs-->>Repo: Merchant
+    end
+    Home->>Cache: Guardar catálogo sin filtrar
+    Home->>Home: Aplicar filtros
+    Home-->>UI: loaded + attract
+```
+
+### B.3 Selección dinámica de proveedor
+
+```mermaid
+flowchart TD
+    Start[Solicitud por merchantId] --> Cached{Data source en caché?}
+    Cached -- Sí --> Use[Reutilizar data source]
+    Cached -- No --> Config[GET /merchants/{id}]
+    Config --> System{externalSystem == patio_service?}
+    System -- Sí --> Legacy[Crear LegacyProductDataSource]
+    System -- No --> Ecosystem[Crear EcosystemProductDataSource]
+    Legacy --> Store[Guardar por merchantId]
+    Ecosystem --> Store
+    Store --> Use
+    Use --> Operation[getProducts / getProduct / getMerchantInfo]
+```
+
+### B.4 Estados de interacción de la pantalla principal
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Attract: load OK / ShowAttract
+    Attract --> Product: ShowProduct / greet / interacción
+    Product --> Product: swipe / carrito
+    Product --> Attract: timeout de inactividad
+    Product --> Idle: ShowIdle / proximity away
+    Product --> Payment: pagar carrito
+    Payment --> Attract: éxito + 5 s
+    Payment --> Product: cancelar / back
+    Payment --> Idle: ShowIdle
+    Attract --> Idle: ShowIdle
+    Idle --> Product: ShowProduct
+    Product --> Error: load o reload fallido
+    Error --> Product: retry exitoso
+```
+
+### B.5 Pago QR dedicado: validación, generación y confirmación
+
+```mermaid
+sequenceDiagram
+    actor User as Usuario
+    participant Home as HomeCubit/HomePage
+    participant Pay as QrPaymentCubit
+    participant Product as Product API
+    participant Orders as Orders API
+    participant Payments as Payments API
+    participant Audio as Audio/Counter
+
+    User->>Home: Pulsar pagar
+    Home->>Home: Pausar timeout y forcePoll
+    alt carrito cambió o quedó vacío
+        Home-->>User: Mostrar aviso y permanecer en catálogo
+    else carrito consistente
+        Home->>Pay: Crear Cubit y navegar a pago
+        Pay->>Product: Validar cada ítem
+        Product-->>Pay: Producto fresco / precio vigente
+        Pay->>Orders: POST create-pending
+        Orders-->>Pay: orderId
+        Pay->>Payments: POST generate-payment
+        Payments-->>Pay: QR
+        Pay-->>User: Mostrar QR
+        loop cada 3 segundos
+            Pay->>Payments: GET status
+            Payments-->>Pay: PENDING / SUCCESS / FAILED
+        end
+        alt confirmado
+            Pay->>Orders: POST complete (no bloqueante)
+            Pay-->>Home: success
+            Home->>Audio: Agradecimiento y contador
+            Home-->>User: Éxito y retorno a attract
+        else fallido o expirado
+            Pay-->>User: Error, limpiar QR/orden y permitir salida
+        end
+    end
+```
+
+### B.6 Servidor local y bus de comandos
+
+```mermaid
+flowchart LR
+    Remote[Robot / operador / servicio VPN]
+    Server[AppServer : PORT_VPN]
+    Audio[AudioService]
+    Bus[UiCommandBus broadcast]
+    Home[HomePage + HomeCubit]
+    Panel[ProductQrPanelWrapper]
+    Status[PaymentPollingStatus]
+    Cache[ProductCache]
+
+    Remote -->|POST /audio/*| Server --> Audio
+    Remote -->|POST /greet, /product, /proximity/*, /config| Server --> Bus
+    Bus --> Home
+    Bus --> Panel
+    Remote -->|POST /payment/start-polling| Server --> Bus --> Panel
+    Remote -->|GET /payment/polling-status| Server --> Status
+    Remote -->|GET /products| Server --> Cache
+    Remote -->|POST /products/reload/filter/polling| Server --> Bus --> Home
+```
+
+### B.7 Panel QR embebido y caché
+
+```mermaid
+stateDiagram-v2
+    [*] --> Bootstrap
+    Bootstrap --> QRReady: cache válida (merchant + monto + TTL)
+    Bootstrap --> Generating: cache ausente/expirada
+    Generating --> QRReady: crear orden + QR sin polling
+    Generating --> Failed: error o producto inválido
+    QRReady --> Polling: StartPaymentPolling
+    QRReady --> Generating: cache invalidada
+    Polling --> Success: estado confirmado
+    Polling --> Failed: rechazado/expirado
+    Polling --> QRReady: StopPaymentPolling
+    Success --> Generating: 5 s / invalidar caché
+    Failed --> Generating: nueva generación
+```
+
+### B.8 Polling de productos y reconciliación del carrito
+
+```mermaid
+flowchart TD
+    Trigger[Mostrar catálogo o ForceProductPoll] --> Threshold{Datos stale?}
+    Threshold -- No --> Keep[Mantener catálogo y timestamp]
+    Threshold -- Sí --> Fetch[Cargar merchants en paralelo]
+    Fetch --> Filter[Aplicar filtros]
+    Filter --> Compare{¿Cambió lista o carrito?}
+    Compare -- No --> Timestamp[Actualizar timestamp]
+    Compare -- Sí --> Reconcile[Reconciliar carrito]
+    Reconcile --> Removed[Eliminar productos ausentes]
+    Reconcile --> Price[Conservar cantidad y avisar cambio de precio]
+    Removed --> Emit[Actualizar ProductCache/HomeState]
+    Price --> Emit
+    Emit --> Snack[SnackBar en modo product]
+    Fetch -. error .-> Keep
+```
+
+### B.9 Prioridad sugerida para mantener la documentación
+
+1. Mantener primero el diagrama de pago y el de arquitectura: son los flujos
+   críticos para operación y soporte.
+2. Mantener el diagrama del servidor/bus junto con `docs/API.md`, porque los
+   comandos remotos son asíncronos y pueden producir confusión operativa.
+3. Actualizar proveedor, catálogo y polling cuando cambien endpoints o reglas
+   de cacheo.
+4. Añadir diagramas de despliegue Linux y de secuencia de audio solo si esos
+   flujos pasan a ser parte de la operación diaria o del troubleshooting.
+
+## 3.1 Capa `presentation`
 
 Contiene todo lo relacionado con la experiencia visible y su estado:
 
 - Las páginas principales, como `HomePage` y `QrPaymentPage`.
-- Widgets del carrusel, tarjetas de producto, QR, resultados, overlays de audio, selector de cantidad y carrito flotante.
+- Widgets del carrusel, tarjetas de producto, QR, resultados, overlays de audio (`AudioOverlayWrapper`, `AudioOverlayWidget`), reproductor de GIF (`AttractGifPlayer`), selector de cantidad y carrito flotante.
 - `HomeCubit`, encargado del catálogo y de los modos visuales de la pantalla principal.
 - `QrPaymentCubit`, encargado del ciclo de vida del pago.
 - Los estados inmutables emitidos por ambos Cubits.
@@ -182,18 +518,18 @@ mini-app-qr/
 
 ### 4.1 `lib/core`
 
-- `config/`: carga y representa la configuración global, la selección de proveedores y los filtros de productos.
-- `constants/`: centraliza rutas o identificadores constantes, principalmente mensajes de audio.
-- `di/`: compone las dependencias de la aplicación mediante un service locator manual.
-- `services/`: implementa el servidor local, audio, cachés, contadores, estado de polling y comunicación por comandos.
-- `ui/`: contiene elementos visuales compartidos, como la paleta de colores.
+- `config/`: carga y representa la configuración global (`AppSettings`), la selección de proveedores (`MerchantConfig`, `MerchantConfigFactory`), los filtros de productos (`ProductFilterConfig`) y la persistencia local (`ConfigStorage`).
+- `constants/`: centraliza rutas o identificadores constantes, principalmente mensajes de audio (`AudioMessages`).
+- `di/`: compone las dependencias de la aplicación mediante un service locator manual (`ServiceLocator`).
+- `services/`: implementa el servidor local (`AppServer`), audio (`AudioService`), notificaciones de audio (`AudioNotificationService`), cachés (`ProductCache`), contador de ventas (`PaymentCounter`), estado de polling (`PaymentPollingStatus`) y comunicación por comandos (`UiCommandBus`).
+- `ui/`: contiene elementos visuales compartidos, como la paleta de colores (`AppColors`).
 
 ### 4.2 `lib/data`
 
-- `datasources/`: encapsula las llamadas HTTP de productos y pagos.
-- `factories/`: selecciona dinámicamente el data source de productos.
-- `models/`: contiene DTOs para solicitudes y respuestas externas.
-- `repositories/`: implementa los contratos de dominio y coordina data sources y mapeos.
+- `datasources/`: encapsula las llamadas HTTP de productos (`LegacyProductDataSource`, `EcosystemProductDataSource`) y pagos (`QrPaymentRemoteDataSource`).
+- `factories/`: selecciona dinámicamente el data source de productos (`ProductDataSourceFactory`).
+- `models/`: contiene DTOs para solicitudes y respuestas externas, incluyendo el subdirectorio `ecosystem/` con los modelos específicos del proveedor Ecosystem (`MenuResponseDto`, `MenuItemDto`, etc.).
+- `repositories/`: implementa los contratos de dominio y coordina data sources y mapeos (`ProductRepositoryImpl`, `QrPaymentRepositoryImpl`).
 
 ### 4.3 `lib/domain`
 
@@ -203,9 +539,14 @@ mini-app-qr/
 
 ### 4.4 `lib/presentation`
 
-- `bloc/`: Cubits y estados de la pantalla principal y del pago QR.
-- `pages/`: pantallas que organizan los flujos completos.
-- `widgets/`: componentes visuales reutilizables y especializados, incluyendo carrusel, tarjetas, selector de cantidad (`ProductQuantitySelector`) y carrito flotante (`FloatingCart`).
+- `bloc/`: Cubits y estados de la pantalla principal (`HomeCubit`, `HomeState`) y del pago QR (`QrPaymentCubit`, `QrPaymentState`).
+- `pages/`: pantallas que organizan los flujos completos (`HomePage`, `QrPaymentPage`).
+- `widgets/`: componentes visuales reutilizables y especializados:
+  - **Carrusel y producto**: `ProductCarousel`, `ProductCard`, `CarouselSwipeHint`.
+  - **Carrito y cantidad**: `ProductQuantitySelector`, `FloatingCart`.
+  - **Pago QR**: `QrPaymentContent`, `QrPaymentScreen`, `QrImageWidget`, `QrDisplayWidget`, `PaymentResultWidget`, `ProductQrPanel`, `ProductQrPanelWrapper`.
+  - **Atracción y audio**: `AttractGifPlayer`, `AudioOverlayWrapper`, `AudioOverlayWidget`.
+  - **Utilidades**: `AppImage` (carga de imágenes con caché opcional), `OrderSummary`.
 
 ### 4.5 Recursos y scripts
 
@@ -265,12 +606,12 @@ El proyecto usa un service locator manual definido en `lib/core/di/service_locat
 Durante `sl.init()` se crean una sola vez:
 
 - Un cliente Dio para órdenes y pagos, configurado con `BASE_URL` y `BEARER_TOKEN`.
+- `ProductDataSourceFactory`, que incluye un segundo cliente Dio para consultar la configuración de merchants (`GET /merchants/{id}`).
 - `QrPaymentRemoteDataSource`.
-- `ProductDataSourceFactory`.
 - Las implementaciones de `ProductRepository` y `QrPaymentRepository`.
 - Todos los casos de uso de productos, merchants y pagos.
 
-El cliente Dio establece tiempos máximos de conexión y respuesta de 20 segundos. También agrega los encabezados `Authorization: Bearer ...` y `Content-Type: application/json`.
+Los clientes Dio establecen tiempos máximos de conexión y respuesta de 20 segundos. También agregan los encabezados `Authorization: Bearer ...` y `Content-Type: application/json`.
 
 ### 6.2 Dependencias creadas bajo demanda
 
@@ -462,7 +803,7 @@ El catálogo puede actualizarse de tres formas:
 - Un comando `ReloadProduct`, normalmente emitido después de modificar configuración o filtros.
 - Un polling bajo demanda o forzado.
 
-Durante un polling, el Cubit compara los campos relevantes de los productos frescos con los actuales. Si existen cambios, vuelve a aplicar los filtros y procura conservar seleccionado el mismo producto mediante su identificador. Si el producto activo desapareció, reinicia el carrusel en cero. El algoritmo detallado del polling se describe en la sección 16.
+Durante un polling, el Cubit compara los campos relevantes de los productos frescos con los actuales. Si existen cambios, vuelve a aplicar los filtros y procura conservar seleccionado el mismo producto mediante su identificador. Si el producto activo desapareció, reinicia el carrusel en cero. El algoritmo detallado del polling se describe en la sección 14.2.
 
 ## 9. Fuentes de productos
 
@@ -632,8 +973,8 @@ La aplicación usa Cubit, una variante de BLoC en la que cada método emite dire
 
 | `DisplayMode` | Resultado visual |
 | --- | --- |
-| `idle` | Pantalla de espera con el texto “Esperando...”. |
-| `attract` | GIF de atracción seleccionado en `attractGifAsset`. |
+| `idle` | Pantalla de espera con el texto "Esperando...". |
+| `attract` | GIF de atracción seleccionado en `attractGifAsset`, con transiciones suaves de fade entre cambios. |
 | `product` | Carga, error o carrusel según el valor de `HomeStatus`. |
 
 Esta separación permite, por ejemplo, cargar datos mientras la pantalla se mantiene en modo de atracción o reposo.
@@ -679,7 +1020,7 @@ cualquier modo ─ showAttract() → attract
 
 Al mover el carrusel, `updateCurrentIndex()` emite el índice nuevo y reinicia el temporizador de inactividad. El timeout se lee de `AppSettings().customerSessionTimeoutSeconds` (fallback 60 segundos). Cuando vence, el Cubit vuelve a `attract`.
 
-`HomeCubit` expone operaciones de carrito:
+`HomeCubit` expone operaciones de carrito y navegación:
 
 - `incrementProduct(Product)`: aumenta la cantidad hasta `maxCartItemQuantity`.
 - `decrementProduct(Product)`: reduce la cantidad; si llega a cero elimina la entrada.
@@ -688,6 +1029,7 @@ Al mover el carrusel, `updateCurrentIndex()` emite el índice nuevo y reinicia e
 - `registerCartInteraction()`: reinicia el timer de inactividad mientras el usuario opera el carrito.
 - `pauseCustomerSessionTimeout()`: detiene el timer; se usa antes de navegar al pago.
 - `resumeCustomerSessionTimeout()`: reanuda el timer cuando se regresa al catálogo.
+- `showProductWithTimeout(Duration)`: muestra el catálogo con un timeout de inactividad personalizado (usado por `CancelPayment` para volver a `attract` tras cinco segundos).
 
 `showProductResetCarousel()` realiza la misma entrada al catálogo, pero fuerza `currentIndex = 0`. Antes de mostrar productos, tanto este método como `showProduct()` comprueban si los datos necesitan actualizarse.
 
@@ -769,7 +1111,7 @@ Antes de mostrar el catálogo, el Cubit verifica la antigüedad de los productos
 - Con ancho mayor a 700 píxeles usa un layout horizontal: carrusel a la izquierda e información y acción de pago a la derecha.
 - En pantallas más estrechas usa un layout vertical con carrusel, nombre, precio y botón.
 
-El carrusel recibe la lista visible y el índice actual. Cuando el usuario cambia de producto, notifica a `HomeCubit`, que actualiza el índice y reinicia el timeout de cinco minutos.
+El carrusel recibe la lista visible y el índice actual. Cuando el usuario cambia de producto, notifica a `HomeCubit`, que actualiza el índice y reinicia el timeout de inactividad configurado (`customerSessionTimeoutSeconds`, fallback 60 segundos).
 
 ### 12.4 Inicio del pago desde la interfaz
 
@@ -844,7 +1186,7 @@ Un comando externo `CancelPayment` cancela el Cubit activo, cierra la ruta si es
 | `ReloadProduct` | Ejecuta una carga completa del catálogo. |
 | `ForceProductPoll` | Ejecuta un polling incondicional. |
 
-Los comandos `StartPaymentPolling` y `StopPaymentPolling` no son procesados directamente por el `switch` de `HomePage`; su consumo depende del flujo de pago o componente que esté suscrito. Este comportamiento se detallará al documentar el polling y el servidor HTTP.
+Los comandos `StartPaymentPolling` y `StopPaymentPolling` no son procesados directamente por el `switch` de `HomePage`; son consumidos por `ProductQrPanelWrapper`, que gestiona el polling manual del QR embebido en la pantalla principal.
 
 ---
 
@@ -871,6 +1213,11 @@ La referencia de pago usa el valor sobrescrito por el llamador o genera `TOTEM-{
 | Panel embebido | `ProductQrPanelWrapper` | Manual mediante `StartPaymentPolling` (`autoPoll: false` inicialmente). |
 
 El panel embebido mantiene una caché estática por clave `{merchantId}_{productId}`. Solo reutiliza la orden si merchant y monto coinciden y no transcurrió `QR_EXPIRATION_MINUTES`. Después de un pago exitoso invalida la entrada, muestra éxito durante cinco segundos y prepara un QR nuevo sin polling.
+
+`QrPaymentCubit` expone métodos para soportar ambas modalidades:
+- `restoreQr({orderId, qrBase64})`: restablece un QR existente sin iniciar polling (usado al recuperar de caché).
+- `beginPolling(merchantId, {orderId, qrBase64})`: inicia o reanuda el polling manual sobre un QR disponible.
+- `stopPollingOnly()`: detiene el timer sin cancelar la orden ni limpiar el QR (usado al salir del panel o de la página).
 
 ### 13.2 Confirmación y cierre
 
@@ -913,15 +1260,24 @@ Los mensajes de sincronización se exponen en `HomeState.cartSyncMessage` y se m
 
 `AppServer` usa `dart:io` y enlaza el socket a `BASE_URL_VPN:PORT_VPN`. Acepta CORS desde cualquier origen, procesa preflight `OPTIONS` y responde JSON. No implementa autenticación propia, rate limiting ni TLS; debe considerarse una API de red confiable y limitarse mediante firewall o VPN.
 
+El servidor expone endpoints agrupados por funcionalidad:
+
+- **Audio**: `POST /audio/play`, `POST /audio/stop`, `POST /play-audio` (por query param), y endpoints legacy por tipo (`/play-question`, `/play-thanks`, `/play-buy`, `/play-order`, `/play-attention`, `/play-collect-tray`, `/play-coffee`).
+- **Robot / UI**: `POST /proximity/near`, `POST /greet`, `POST /product`, `POST /proximity/away`, `POST /carrusel/product`, `POST /cancel-payment`.
+- **Attract GIF**: `POST /attract/set`, `GET /attract/current`.
+- **Pago QR (home)**: `POST /payment/start-polling`, `POST /payment/stop-polling`, `GET /payment/polling-status`, `POST /payment/reset-counter`.
+- **Productos**: `GET /products`, `POST /products/filter`, `POST /products/reload`, `POST /products/polling/force`, `GET /products/polling/status`.
+- **Configuración**: `GET /config`, `POST /config`.
+
 El servidor no importa Cubits. Publica objetos en el stream broadcast `UiCommandBus`; los componentes visuales suscritos ejecutan el cambio correspondiente. Esta relación mantiene desacoplada la infraestructura HTTP de Flutter Presentation.
 
 Los servicios singleton en memoria son:
 
 - `ProductCache`: catálogo completo para consultas HTTP.
-- `PaymentPollingStatus`: contexto y fase del pago visible.
-- `PaymentCounter`: total, monto, últimas 50 ventas y resumen por producto.
-- `AudioService`: reproductor único y cooldown.
-- `AudioNotificationService`: stream para overlays visuales.
+- `PaymentPollingStatus`: contexto y fase del pago visible (`idle`, `waiting`, `polling`, `success`, `failed`).
+- `PaymentCounter`: total de ventas, monto acumulado, últimas 50 ventas y resumen por producto.
+- `AudioService`: reproductor único con cooldown anti-spam y soporte para llamadas remotas.
+- `AudioNotificationService`: stream broadcast para overlays visuales de audio.
 
 Su estado se pierde al reiniciar el proceso. El contrato completo del servidor y de las APIs externas está en [API.md](docs/API.md); el audio se documenta en [AUDIO.md](docs/AUDIO.md).
 
