@@ -118,6 +118,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                 productId: _productId ?? 0,
                 productName: _productName,
                 merchantId: widget.merchantId,
+                cartItems: widget.cartItems,
               );
               // Volver al GIF automaticamente despues de unos segundos
               _successReturnTimer?.cancel();

@@ -151,8 +151,9 @@ flujos iniciados por el cliente, por el operador remoto y por tareas internas.
     estado del pago; estados externos se normalizan a pendiente, confirmado o
     fallido.
 27. **Confirmación y cierre**: detiene polling, dispara completion sin bloquear
-    la UI, reproduce agradecimiento, incrementa contador y retorna a atracción
-    después de cinco segundos.
+    la UI, reproduce agradecimiento, registra en el contador la orden con todas
+    las líneas y cantidades del carrito, y retorna a atracción después de cinco
+    segundos.
 28. **Pago fallido**: detiene polling, limpia orden y QR cuando corresponde y
     permite volver o reintentar si aún existe una orden.
 29. **Cancelación y salida**: `cancel()` emite `cancelled`; al hacer pop se usa
@@ -170,8 +171,9 @@ flujos iniciados por el cliente, por el operador remoto y por tareas internas.
     tokens, host o puerto requieren reinicio.
 33. **Administración de filtros**: `POST /products/filter` cambia filtros en
     memoria y opcionalmente emite reload; `reset` restaura el modo `all`.
-34. **Control operativo del contador**: incrementos después de pagos exitosos,
-    consulta junto al estado remoto y reinicio mediante `/payment/reset-counter`.
+34. **Control operativo del contador**: después de cada pago exitoso registra
+    una orden y sus unidades por producto, se consulta junto al estado remoto y
+    se reinicia mediante `/payment/reset-counter`.
 35. **Ejecución y empaquetado**: desarrollo en Windows, build Linux, imagen o
     scripts de instalación/kiosco y autostart.
 
@@ -1142,7 +1144,8 @@ Cuando `QrPaymentCubit` emite `success`, la página:
 
 - Fija `_paymentSucceeded` para dar prioridad permanente a la UI exitosa.
 - Reproduce el audio de agradecimiento.
-- Incrementa `PaymentCounter` con producto, merchant y monto.
+- Registra en `PaymentCounter` el merchant, el monto y el carrito completo con
+  las cantidades vendidas por producto.
 - Muestra `PaymentResultWidget` con el mensaje de confirmación.
 - Programa el retorno automático después de cinco segundos.
 
@@ -1221,7 +1224,7 @@ El panel embebido mantiene una caché estática por clave `{merchantId}_{product
 
 ### 13.2 Confirmación y cierre
 
-Al recibir un estado confirmado, `QrPaymentCubit` detiene el timer, solicita `POST /orders/complete/{orderId}` sin bloquear la UI y emite `success`. La pantalla reproduce agradecimiento, incrementa el contador en memoria y vuelve a atracción después de cinco segundos.
+Al recibir un estado confirmado, `QrPaymentCubit` detiene el timer, solicita `POST /orders/complete/{orderId}` sin bloquear la UI y emite `success`. La pantalla reproduce agradecimiento, registra en el contador en memoria una orden con todas las líneas y cantidades del carrito, y vuelve a atracción después de cinco segundos.
 
 La finalización usa `catchError` vacío: un fallo del endpoint de completado no revierte el éxito visual ya confirmado por el endpoint de estado. Esta decisión prioriza la experiencia del usuario, pero requiere observabilidad externa si completar la orden es una operación crítica.
 
@@ -1275,7 +1278,30 @@ Los servicios singleton en memoria son:
 
 - `ProductCache`: catálogo completo para consultas HTTP.
 - `PaymentPollingStatus`: contexto y fase del pago visible (`idle`, `waiting`, `polling`, `success`, `failed`).
-- `PaymentCounter`: total de ventas, monto acumulado, últimas 50 ventas y resumen por producto.
+- `PaymentCounter`: total de órdenes, total de unidades, monto acumulado,
+  últimas 50 órdenes y resumen acumulado por `merchantId` y `productId`.
+
+### 15.1 Contrato del contador de ventas
+
+`PaymentCounter` diferencia una orden pagada de las unidades vendidas. Cada
+confirmación incrementa `totalSales` y `totalOrders` una sola vez, mientras que
+`totalUnits` suma las cantidades de todas las líneas del carrito.
+
+El objeto `counter` incluido en `GET /payment/polling-status` expone:
+
+- `totalSales`: cantidad de pagos confirmados; se conserva por compatibilidad.
+- `totalOrders`: alias explícito de `totalSales`.
+- `totalUnits`: suma de unidades vendidas.
+- `totalAmount`: importe total de las órdenes confirmadas.
+- `byProduct`: resumen por producto con `productId`, `merchantId`, `name`,
+  `quantity`, `count` y `total`. `count` es un alias de `quantity` para que los
+  clientes existentes que muestran `p.count` reciban la cantidad correcta.
+- `recent`: últimas diez órdenes, incluyendo `quantity` total e `items` con el
+  detalle de cada producto.
+
+El resumen por producto se conserva durante toda la sesión y no depende del
+límite de 50 órdenes recientes. Todo el contador continúa siendo volátil y se
+vacía al reiniciar el proceso o mediante `POST /payment/reset-counter`.
 - `AudioService`: reproductor único con cooldown anti-spam y soporte para llamadas remotas.
 - `AudioNotificationService`: stream broadcast para overlays visuales de audio.
 
