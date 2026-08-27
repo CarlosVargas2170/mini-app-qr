@@ -51,3 +51,6 @@ app.*.map.json
 /remote-control/*
 /linux/*
 AGENTS.md
+
+.fvm/
+.fvmrc

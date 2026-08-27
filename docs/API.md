@@ -110,7 +110,7 @@ Las fases posibles son `idle`, `waiting`, `polling`, `success` y `failed`. `POST
 
 ## 5. Configuración
 
-`GET /config` devuelve `baseUrl`, `bearerToken`, `merchantId`, `merchantIds`, `productId`, `baseUrlVpn` y `portVpn`. Atención: incluye el token sin enmascarar.
+`GET /config` devuelve `baseUrl`, `merchantId`, `merchantIds`, `productId`, `baseUrlVpn` y `portVpn`. Las credenciales, incluido `bearerToken`, se omiten deliberadamente de la respuesta.
 
 `POST /config` acepta cualquier subconjunto:
 
@@ -174,7 +174,7 @@ Modos válidos: `all`, `blacklist`, `whitelist`. `reset: true` limpia filtros. `
 
 ### Órdenes y QR
 
-`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia y cliente. El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`.
+`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia y cliente. El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `name`, `quantity`, `unitPrice` y `totalPrice`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
 
 `POST /payments/qr/generate-payment`:
 

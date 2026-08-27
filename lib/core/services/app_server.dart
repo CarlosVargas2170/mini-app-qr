@@ -461,15 +461,7 @@ class AppServer {
     final settings = AppSettings();
     _sendJson(response, 200, {
       'success': true,
-      'data': {
-        'baseUrl': settings.baseUrl,
-        'bearerToken': settings.bearerToken,
-        'merchantId': settings.merchantId, // Compatibilidad: primer merchant
-        'merchantIds': settings.merchantIds, // Nuevo: lista completa
-        'productId': settings.productId,
-        'baseUrlVpn': settings.baseUrlVpn,
-        'portVpn': settings.portVpn,
-      },
+      'data': buildPublicConfigData(settings),
     });
   }
 
@@ -788,3 +780,17 @@ class AppServer {
     if (kDebugMode) debugPrint('[AppServer] Servidor detenido.');
   }
 }
+
+/// Construye la configuracion que puede exponerse mediante la API local.
+///
+/// Las credenciales se excluyen deliberadamente. El token puede actualizarse
+/// mediante `POST /config`, pero nunca se devuelve al cliente de control.
+@visibleForTesting
+Map<String, dynamic> buildPublicConfigData(AppSettings settings) => {
+      'baseUrl': settings.baseUrl,
+      'merchantId': settings.merchantId, // Compatibilidad: primer merchant
+      'merchantIds': settings.merchantIds,
+      'productId': settings.productId,
+      'baseUrlVpn': settings.baseUrlVpn,
+      'portVpn': settings.portVpn,
+    };

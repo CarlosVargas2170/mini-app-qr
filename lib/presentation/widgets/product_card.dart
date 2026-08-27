@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/product.dart';
-import 'app_image.dart';
+import 'adaptive_product_image.dart';
 
 class ProductCard extends StatefulWidget {
   final Product product;
@@ -35,7 +35,7 @@ class _ProductCardState extends State<ProductCard>
         Container(color: const Color(0xFF0D0D1A)),
         if (widget.product.urlImage.isNotEmpty)
           Positioned.fill(
-            child: AppImage(
+            child: AdaptiveProductImage(
               imageUrl: widget.product.urlImage,
               errorWidget: const _Placeholder(),
             ),
@@ -43,7 +43,9 @@ class _ProductCardState extends State<ProductCard>
         else
           const _Placeholder(),
         Positioned(
-          left: 0, right: 0, bottom: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -52,7 +54,8 @@ class _ProductCardState extends State<ProductCard>
                 colors: [Color(0xEE000000), Colors.transparent],
               ),
             ),
-            padding: const EdgeInsets.only(top: 120, bottom: 20, left: 20, right: 20),
+            padding: const EdgeInsets.only(
+                top: 120, bottom: 20, left: 20, right: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -136,10 +139,12 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+        style: const TextStyle(
+            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
       ),
     );
   }

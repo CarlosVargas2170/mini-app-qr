@@ -2,10 +2,12 @@
 
 ## 1. Requisitos de desarrollo
 
-- Flutter compatible con Dart `>=3.0.0 <4.0.0`.
+- **Flutter** `3.44.3` (stable) — Dart `3.12.2` — DevTools `2.57.0`.
 - Dependencias de escritorio de la plataforma.
 - Archivo `.env` creado desde `.env_example`.
 - Acceso de red a las APIs configuradas.
+
+> Versión del SDK verificada en el entorno de desarrollo principal. La compilación de producción usa el mismo canal estable.
 
 Comandos habituales:
 
@@ -16,6 +18,8 @@ flutter analyze
 flutter test
 dart format lib test
 ```
+
+La carpeta `test/` está versionada desde el commit `[TEST]-cart-checkout`. Las pruebas cubren modelos de datos, estados de Cubits, comportamiento del carrito y widgets de la interfaz.
 
 ## 2. Build Linux nativo
 
@@ -130,3 +134,9 @@ El script detiene/deshabilita un posible servicio systemd, elimina `/opt/mini_ap
 ## 10. Seguridad operativa
 
 El bundle contiene `.env`; proteger permisos de `/opt/mini_app_qr`. El servidor HTTP interno no autentica solicitudes ni usa TLS. Debe exponerse únicamente en una VPN o segmento controlado. No registrar ni incluir tokens reales en paquetes distribuidos fuera del entorno autorizado.
+
+## Referencias
+
+- [Diagrama de despliegue Linux y modo kiosco](diagrams/14-linux-deployment.md)
+- [Configuración de variables de entorno](CONFIGURATION.md)
+- [Arquitectura general](ARCHITECTURE.md)

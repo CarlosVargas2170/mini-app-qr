@@ -64,3 +64,9 @@ Los assets registrados por Flutter son todo `assets/audio/`. Para agregar un arc
 ## 8. API
 
 Los cuerpos, parámetros y respuestas de `/audio/play`, `/play-audio`, `/audio/stop` y endpoints predefinidos están en [API.md](API.md).
+
+## Referencias
+
+- [Diagrama del sistema de audio](diagrams/13-audio-flow.md)
+- [Diagrama de servidor local y bus de comandos](diagrams/06-server-commands.md)
+- [Arquitectura general](ARCHITECTURE.md)

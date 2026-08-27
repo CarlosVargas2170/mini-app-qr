@@ -6,6 +6,25 @@ import '../bloc/home_cubit.dart';
 import 'carousel_swipe_hint.dart';
 import 'product_card.dart';
 
+const int _maxVisibleIndicators = 7;
+
+@visibleForTesting
+List<int> buildVisibleIndicatorIndices({
+  required int count,
+  required int current,
+  int maxVisible = _maxVisibleIndicators,
+}) {
+  if (count <= 0 || maxVisible <= 0) return const [];
+
+  final visibleCount = count < maxVisible ? count : maxVisible;
+  final safeCurrent = current.clamp(0, count - 1);
+  final halfWindow = visibleCount ~/ 2;
+  final maxStart = count - visibleCount;
+  final start = (safeCurrent - halfWindow).clamp(0, maxStart);
+
+  return List.generate(visibleCount, (offset) => start + offset);
+}
+
 class ProductCarousel extends StatefulWidget {
   final List<Product> products;
   final int currentIndex;
@@ -112,9 +131,14 @@ class _ProductCarouselState extends State<ProductCarousel> {
   }
 
   Widget _buildIndicators(int count, int current) {
+    final visibleIndices = buildVisibleIndicatorIndices(
+      count: count,
+      current: current,
+    );
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
+      children: visibleIndices.map((index) {
         final isActive = index == current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
@@ -126,7 +150,7 @@ class _ProductCarouselState extends State<ProductCarousel> {
             borderRadius: BorderRadius.circular(4),
           ),
         );
-      }),
+      }).toList(),
     );
   }
 }

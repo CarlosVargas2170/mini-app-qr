@@ -21,6 +21,8 @@
 | `NAME_MESERO` | Texto | `Robot Mesero` | Nombre de cliente por defecto en órdenes. |
 | `QR_EXPIRATION_MINUTES` | Entero positivo | `3` | TTL de la caché de QR del panel embebido y texto informativo. |
 | `PRODUCT_POLLING_STALE_SECONDS` | Entero | `60` | Antigüedad mínima para polling bajo demanda; `<= 0` lo deshabilita. |
+| `MAX_CART_ITEM_QUANTITY` | Entero positivo | `10` | Cantidad máxima permitida de un mismo producto en el carrito. |
+| `CUSTOMER_SESSION_TIMEOUT_SECONDS` | Entero positivo | `60` | Tiempo sin interacción antes de que la sesión del cliente finalice y la pantalla vuelva a atracción. |
 
 Los tokens vacíos permiten arrancar, pero `AppSettings.isConfigured` exige `BASE_URL`, `BEARER_TOKEN`, al menos un merchant y `PRODUCT_ID != 0`. El flujo principal no consulta actualmente `isConfigured` antes de iniciar.
 
@@ -40,6 +42,8 @@ PORT_VPN=5050
 NAME_MESERO=Robot Mesero
 QR_EXPIRATION_MINUTES=3
 PRODUCT_POLLING_STALE_SECONDS=60
+MAX_CART_ITEM_QUANTITY=10
+CUSTOMER_SESSION_TIMEOUT_SECONDS=60
 ```
 
 `.env` está declarado como asset en `pubspec.yaml`: sus valores se incluyen en el bundle compilado. No debe considerarse un almacén secreto fuerte. Si los tokens son sensibles, conviene entregar credenciales de corta duración o usar almacenamiento/inyectado de secretos apropiado para el entorno.
@@ -64,7 +68,7 @@ Los filtros viven en `AppSettings.filterConfig`, exclusivamente en memoria. Al i
 
 - Nunca versionar `.env`, tokens o credenciales.
 - No registrar cuerpos o encabezados que contengan secretos.
-- `GET /config` expone actualmente `bearerToken`; debería enmascararse o eliminarse antes de exponer el servidor fuera de una red confiable.
+- `GET /config` no devuelve `bearerToken` ni otras credenciales. `POST /config` permite actualizar el token sin incluir su valor en la respuesta.
 - Restringir `BASE_URL_VPN` a una interfaz privada y aplicar firewall.
 - El servidor interno carece de autenticación y usa CORS `*`.
 - Rotar cualquier credencial que haya sido publicada accidentalmente en Git, incluso si después se elimina del historial visible.
@@ -72,3 +76,10 @@ Los filtros viven en `AppSettings.filterConfig`, exclusivamente en memoria. Al i
 ## 7. Archivos versionados
 
 Se recomienda versionar `.env_example` y este documento. `.env` debe permanecer en `.gitignore`. Los valores públicos de ejemplo deben ser ficticios o estar aprobados explícitamente para publicación.
+
+## Referencias
+
+- [Diagrama de configuración dinámica por HTTP](diagrams/11-dynamic-config.md)
+- [Diagrama de servidor local y bus de comandos](diagrams/06-server-commands.md)
+- [API de configuración](API.md)
+- [Arquitectura general](ARCHITECTURE.md)
