@@ -76,3 +76,10 @@ Los filtros viven en `AppSettings.filterConfig`, exclusivamente en memoria. Al i
 ## 7. Archivos versionados
 
 Se recomienda versionar `.env_example` y este documento. `.env` debe permanecer en `.gitignore`. Los valores públicos de ejemplo deben ser ficticios o estar aprobados explícitamente para publicación.
+
+## Referencias
+
+- [Diagrama de configuración dinámica por HTTP](diagrams/11-dynamic-config.md)
+- [Diagrama de servidor local y bus de comandos](diagrams/06-server-commands.md)
+- [API de configuración](API.md)
+- [Arquitectura general](ARCHITECTURE.md)
