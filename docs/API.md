@@ -110,7 +110,7 @@ Las fases posibles son `idle`, `waiting`, `polling`, `success` y `failed`. `POST
 
 ## 5. Configuración
 
-`GET /config` devuelve `baseUrl`, `bearerToken`, `merchantId`, `merchantIds`, `productId`, `baseUrlVpn` y `portVpn`. Atención: incluye el token sin enmascarar.
+`GET /config` devuelve `baseUrl`, `merchantId`, `merchantIds`, `productId`, `baseUrlVpn` y `portVpn`. Las credenciales, incluido `bearerToken`, se omiten deliberadamente de la respuesta.
 
 `POST /config` acepta cualquier subconjunto:
 

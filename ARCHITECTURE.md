@@ -179,8 +179,8 @@ flujos iniciados por el cliente, por el operador remoto y por tareas internas.
 
 ### A.6 Flujos que conviene vigilar especialmente
 
-- **Configuración sensible**: `GET /config` devuelve `bearerToken`; el servidor
-  local no tiene autenticación, TLS ni rate limiting.
+- **Configuración sensible**: `GET /config` omite `bearerToken` y otras
+  credenciales; el servidor local sigue sin autenticación, TLS ni rate limiting.
 - **Configuración dinámica incompleta**: los clientes Dio y data sources
   cacheados no se reconstruyen tras cambiar URLs o tokens.
 - **Consistencia del pago**: la UI muestra éxito aunque `completeOrder` falle;
@@ -1335,7 +1335,7 @@ Los errores se registran principalmente con `debugPrint` y algunos `print`. No e
 - `POST /config` modifica memoria y no persiste en disco, pese a existir `ConfigStorage`.
 - Cambiar URLs, tokens, host o puerto mediante HTTP exige reiniciar el proceso.
 - Los clientes y data sources cacheados no se reconstruyen automáticamente.
-- El servidor local expone el bearer token mediante `GET /config`; esto es sensible si la red no está aislada.
+- `GET /config` excluye el bearer token y otras credenciales de su respuesta.
 - CORS es permisivo y los endpoints internos no requieren autenticación.
 - Contador, estado de polling, filtros, cachés de catálogo y QR viven en memoria.
 - La comparación de productos depende también del orden devuelto por la API.

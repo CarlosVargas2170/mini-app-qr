@@ -68,7 +68,7 @@ Los filtros viven en `AppSettings.filterConfig`, exclusivamente en memoria. Al i
 
 - Nunca versionar `.env`, tokens o credenciales.
 - No registrar cuerpos o encabezados que contengan secretos.
-- `GET /config` expone actualmente `bearerToken`; debería enmascararse o eliminarse antes de exponer el servidor fuera de una red confiable.
+- `GET /config` no devuelve `bearerToken` ni otras credenciales. `POST /config` permite actualizar el token sin incluir su valor en la respuesta.
 - Restringir `BASE_URL_VPN` a una interfaz privada y aplicar firewall.
 - El servidor interno carece de autenticación y usa CORS `*`.
 - Rotar cualquier credencial que haya sido publicada accidentalmente en Git, incluso si después se elimina del historial visible.
