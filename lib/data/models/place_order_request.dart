@@ -8,6 +8,8 @@ class PlaceOrderRequestDto {
   final Map<String, dynamic>? menuData;
   final String? phoneNumber;
   final String? whereEat;
+  final String? nit;
+  final String? businessName;
   final String? paymentReferenceOverride;
 
   PlaceOrderRequestDto({
@@ -18,6 +20,8 @@ class PlaceOrderRequestDto {
     this.menuData,
     this.phoneNumber,
     this.whereEat,
+    this.nit,
+    this.businessName,
     this.paymentReferenceOverride,
   });
 
@@ -44,6 +48,9 @@ class PlaceOrderRequestDto {
       'customerName': customerName,
       if (phoneNumber != null && phoneNumber!.isNotEmpty)
         'phoneNumber': phoneNumber,
+      if (nit != null && nit!.trim().isNotEmpty) 'nit': nit!.trim(),
+      if (businessName != null && businessName!.trim().isNotEmpty)
+        'businessName': businessName!.trim(),
     };
   }
 

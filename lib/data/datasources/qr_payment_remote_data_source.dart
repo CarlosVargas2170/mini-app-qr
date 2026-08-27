@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
 import '../models/update_order_request.dart';
@@ -47,11 +49,15 @@ class QrPaymentRemoteDataSourceImpl implements QrPaymentRemoteDataSource {
     PlaceOrderRequestDto request,
   ) async {
     try {
-      final response = await _dio.post('/orders/create-pending', data: request.toJson());
+      debugPrint('[QR_DS] POST /orders/create-pending');
+      final response =
+          await _dio.post('/orders/create-pending', data: request.toJson());
+      debugPrint('[QR_DS] Respuesta create-pending: ${response.data}');
       return PlaceOrderResponseDto.fromJson(
         response.data as Map<String, dynamic>,
       );
     } catch (e) {
+      debugPrint('[QR_DS] ERROR en placeOrderPending: $e');
       throw ServerException('placeOrderPending failed: $e');
     }
   }
@@ -61,14 +67,18 @@ class QrPaymentRemoteDataSourceImpl implements QrPaymentRemoteDataSource {
     GeneratePaymentQrRequestDto request,
   ) async {
     try {
+      debugPrint('[QR_DS] POST /payments/qr/generate-payment');
+      debugPrint('[QR_DS] Body generate-payment: ${request.toJson()}');
       final response = await _dio.post(
         '/payments/qr/generate-payment',
         data: request.toJson(),
       );
+      debugPrint('[QR_DS] Respuesta generate-payment: ${response.data}');
       return GeneratePaymentQrResponseDto.fromJson(
         response.data as Map<String, dynamic>,
       );
     } catch (e) {
+      debugPrint('[QR_DS] ERROR en generatePaymentQr: $e');
       throw ServerException('generatePaymentQr failed: $e');
     }
   }

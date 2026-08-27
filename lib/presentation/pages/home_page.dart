@@ -12,6 +12,7 @@ import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
+import '../widgets/billing_dialogs.dart';
 import '../widgets/floating_cart.dart';
 import '../widgets/product_carousel.dart';
 import '../widgets/product_quantity_selector.dart';
@@ -560,6 +561,14 @@ class _HomeViewState extends State<_HomeView> {
     final previousSyncRevision = homeCubit.state.cartSyncRevision;
     homeCubit.pauseCustomerSessionTimeout();
 
+    final billingDetails = await _collectBillingDetails();
+    if (!mounted) return;
+    if (billingDetails == null) {
+      _isPreparingPayment = false;
+      homeCubit.resumeCustomerSessionTimeout();
+      return;
+    }
+
     // La orden debe salir del catalogo mas reciente. El polling reconcilia el
     // carrito por merchant/producto antes de crear el snapshot de pago.
     await homeCubit.forcePoll();
@@ -620,6 +629,8 @@ class _HomeViewState extends State<_HomeView> {
             merchantId: firstProduct.merchantId,
             productId: firstProduct.id,
             amount: amount,
+            nit: billingDetails.nit,
+            businessName: billingDetails.businessName,
             cartItems: cartItems,
             menuData: {
               'merchantName':
@@ -657,6 +668,14 @@ class _HomeViewState extends State<_HomeView> {
       homeCubit.resumeCustomerSessionTimeout();
       _showCartSyncNoticeIfNeeded(this.context, homeCubit.state);
     });
+  }
+
+  Future<BillingFlowResult?> _collectBillingDetails() {
+    return showDialog<BillingFlowResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const BillingFlowDialog(),
+    );
   }
 }
 

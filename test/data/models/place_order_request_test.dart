@@ -56,5 +56,35 @@ void main() {
       expect(items.single['quantity'], 5);
       expect(items.single['totalPrice'], 50);
     });
+
+    test('incluye y recorta los datos de facturacion', () {
+      final request = PlaceOrderRequestDto(
+        merchantId: 53,
+        customerName: 'Robot',
+        nit: ' 1234567890123 ',
+        businessName: ' Empresa SRL ',
+        cartItems: const [],
+      );
+
+      final json = request.toJson();
+
+      expect(json['nit'], '1234567890123');
+      expect(json['businessName'], 'Empresa SRL');
+    });
+
+    test('omite los datos de facturacion vacios', () {
+      final request = PlaceOrderRequestDto(
+        merchantId: 53,
+        customerName: 'Robot',
+        nit: '   ',
+        businessName: '',
+        cartItems: const [],
+      );
+
+      final json = request.toJson();
+
+      expect(json, isNot(contains('nit')));
+      expect(json, isNot(contains('businessName')));
+    });
   });
 }
