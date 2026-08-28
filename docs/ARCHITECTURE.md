@@ -82,7 +82,7 @@ Para una versión interactiva con Mermaid que incluya servicios compartidos y co
 Contiene todo lo relacionado con la experiencia visible y su estado:
 
 - Las páginas principales, como `HomePage` y `QrPaymentPage`.
-- Widgets del carrusel, tarjetas de producto, QR, resultados, overlays de audio (`AudioOverlayWrapper`, `AudioOverlayWidget`), reproductor de GIF (`AttractGifPlayer`), selector de cantidad y carrito flotante.
+- Widgets del carrusel, tarjetas de producto, imágenes adaptativas (`AdaptiveProductImage`), QR, resultados, overlays de audio (`AudioOverlayWrapper`, `AudioOverlayWidget`), reproductor de GIF (`AttractGifPlayer`), selector de cantidad, carrito flotante y diálogo de facturación (`BillingFlowDialog`).
 - `HomeCubit`, encargado del catálogo y de los modos visuales de la pantalla principal.
 - `QrPaymentCubit`, encargado del ciclo de vida del pago.
 - Los estados inmutables emitidos por ambos Cubits.
@@ -225,15 +225,17 @@ mini-app-qr/
 - `bloc/`: Cubits y estados de la pantalla principal (`HomeCubit`, `HomeState`) y del pago QR (`QrPaymentCubit`, `QrPaymentState`).
 - `pages/`: pantallas que organizan los flujos completos (`HomePage`, `QrPaymentPage`).
 - `widgets/`: componentes visuales reutilizables y especializados:
-  - **Carrusel y producto**: `ProductCarousel`, `ProductCard`, `CarouselSwipeHint`.
+  - **Carrusel y producto**: `ProductCarousel`, `ProductCard`, `CarouselSwipeHint`, `AdaptiveProductImage`.
   - **Carrito y cantidad**: `ProductQuantitySelector`, `FloatingCart`.
-  - **Pago QR**: `QrPaymentContent`, `QrPaymentScreen`, `QrImageWidget`, `QrDisplayWidget`, `PaymentResultWidget`, `ProductQrPanel`, `ProductQrPanelWrapper`.
+  - **Pago QR**: `QrPaymentContent`, `QrPaymentScreen`, `QrImageWidget`, `QrDisplayWidget`, `PaymentResultWidget`, `ProductQrPanel`, `ProductQrPanelWrapper`, `BillingFlowDialog`.
   - **Atracción y audio**: `AttractGifPlayer`, `AudioOverlayWrapper`, `AudioOverlayWidget`.
   - **Utilidades**: `AppImage` (carga de imágenes con caché opcional), `OrderSummary`.
 
 ### 4.5 Recursos y scripts
 
-Los audios e imágenes están registrados en `pubspec.yaml` como recursos de Flutter. La aplicación utiliza imágenes animadas para sus distintos modos visuales y audios para saludos, instrucciones, notificaciones y confirmaciones.
+Los audios e imágenes están registrados en `pubspec.yaml` como recursos de Flutter. La aplicación utiliza imágenes animadas para sus distintos modos visuales (incluyendo GIFs de atracción como `normal`, `aura`, `kiss` y `six-seven`) y audios para saludos, instrucciones, notificaciones, confirmaciones y efectos adicionales (`dance_to_sell`, `reto_tokio`, entre otros).
+
+La pantalla principal (`HomePage`) incluye branding visual: logo de Megacenter en la parte superior y firma de Nexus Patio Tech en la esquina inferior izquierda.
 
 Aunque existe `assets/videos/`, en el `pubspec.yaml` vigente solo se registran `.env`, `assets/audio/` y `assets/images/`. Por lo tanto, cualquier video que se cargue como asset de Flutter debe registrarse antes de poder utilizarse en una compilación.
 

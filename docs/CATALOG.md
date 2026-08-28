@@ -269,6 +269,18 @@ Los endpoints que modifican y restablecen filtros, sus cuerpos JSON y su persist
 
 ---
 
+## 9. Presentación visual del producto
+
+### Imagen adaptativa
+
+`AdaptiveProductImage` resuelve el tamaño real de la imagen remota antes de renderizarla. Si la diferencia de aspecto entre la imagen y su contenedor supera un umbral (`_maxCompatibleAspectDifference = 1.55`), el widget cambia a un layout protegido: fondo borroso escalado con `ImageFilter.blur`, una capa semitransparente y la imagen centrada con `BoxFit.contain`. Esto evita que productos con fotos muy verticales u horizontales sufran recortes excesivos con `BoxFit.cover`. Si la imagen es compatible, utiliza `BoxFit.cover` de forma convencional mediante `AppImage`.
+
+### Indicadores del carrusel
+
+`ProductCarousel` limita la cantidad de indicadores visibles a un máximo de 7. Cuando el catálogo supera ese tamaño, solo se muestra una ventana deslizante centrada en el producto activo. Esto mantiene la barra de indicadores compacta incluso con colecciones grandes.
+
+---
+
 ## Referencias
 
 - [Diagrama de selección de proveedor](diagrams/03-provider-selection.md)

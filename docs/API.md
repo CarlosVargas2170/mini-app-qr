@@ -174,7 +174,7 @@ Modos válidos: `all`, `blacklist`, `whitelist`. `reset: true` limpia filtros. `
 
 ### Órdenes y QR
 
-`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia y cliente. El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `name`, `quantity`, `unitPrice` y `totalPrice`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
+`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia, cliente y, opcionalmente, datos de facturación (`nit` y `businessName`). El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `name`, `quantity`, `unitPrice` y `totalPrice`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
 
 `POST /payments/qr/generate-payment`:
 

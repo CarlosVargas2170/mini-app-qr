@@ -18,6 +18,7 @@ class MerchantConfig {
   final String bearerToken;
   final String merchantName;
   final String? merchantLogo;
+  final String billingType;
 
   // ─── Ecosystem only ───
   final int? companyId;
@@ -33,6 +34,7 @@ class MerchantConfig {
     required this.bearerToken,
     required this.merchantName,
     this.merchantLogo,
+    required this.billingType,
   })  : provider = ProductProviderType.legacy,
         companyId = null,
         channelId = null,
@@ -44,6 +46,7 @@ class MerchantConfig {
     required this.bearerToken,
     required this.merchantName,
     this.merchantLogo,
+    required this.billingType,
     required this.companyId,
     required this.channelId,
     required this.storeId,

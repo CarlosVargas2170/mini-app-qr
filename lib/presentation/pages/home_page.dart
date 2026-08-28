@@ -561,14 +561,6 @@ class _HomeViewState extends State<_HomeView> {
     final previousSyncRevision = homeCubit.state.cartSyncRevision;
     homeCubit.pauseCustomerSessionTimeout();
 
-    final billingDetails = await _collectBillingDetails();
-    if (!mounted) return;
-    if (billingDetails == null) {
-      _isPreparingPayment = false;
-      homeCubit.resumeCustomerSessionTimeout();
-      return;
-    }
-
     // La orden debe salir del catalogo mas reciente. El polling reconcilia el
     // carrito por merchant/producto antes de crear el snapshot de pago.
     await homeCubit.forcePoll();
@@ -589,6 +581,18 @@ class _HomeViewState extends State<_HomeView> {
     }
 
     final products = List.of(refreshedState.cartProducts);
+    final firstProduct = products.first;
+
+    final billingDetails = refreshedState
+            .merchantUsesBilling(firstProduct.merchantId)
+        ? await _collectBillingDetails()
+        : const BillingFlowResult.withoutInvoice();
+    if (!mounted) return;
+    if (billingDetails == null) {
+      _isPreparingPayment = false;
+      homeCubit.resumeCustomerSessionTimeout();
+      return;
+    }
 
     // Snapshot del carrito: orden y QR salen de la misma seleccion.
     final cartItems = products
@@ -608,7 +612,6 @@ class _HomeViewState extends State<_HomeView> {
               'description': product.description,
             })
         .toList(growable: false);
-    final firstProduct = products.first;
     final amount = products.fold<double>(
       0,
       (total, product) =>
