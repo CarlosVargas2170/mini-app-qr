@@ -22,6 +22,7 @@ class MerchantConfigFactory {
     final merchantId = json['id'] as int;
     final name = (json['name'] as String?) ?? '';
     final logo = json['urlLogo'] as String?;
+    final billingType = _normalizeBillingType(json['billingType']);
 
     final config = json['configuration'] as Map<String, dynamic>?;
     final externalSystem =
@@ -38,6 +39,7 @@ class MerchantConfigFactory {
         bearerToken: settings.bearerToken,
         merchantName: name,
         merchantLogo: logo,
+        billingType: billingType,
       );
     }
     // merchant_panel → ecosystem
@@ -54,21 +56,34 @@ class MerchantConfigFactory {
         'companyChannelExternalId=${json['companyChannelExternalId']}, '
         'merchantExternalId=${json['merchantExternalId']}');
     if (companyId == null || channelId == null || storeId == null) {
-      debugPrint('[MerchantConfigFactory] ⚠️ Faltan IDs para ecosystem. '
+      debugPrint('[MerchantConfigFactory] WARN: Missing ecosystem IDs. '
           'companyExternalId=${json['companyExternalId']}, '
           'companyChannelExternalId=${json['companyChannelExternalId']}, '
           'merchantExternalId=${json['merchantExternalId']}');
     }
 
+    final ecosystemBaseUrl = settings.ecosystemBaseUrl.endsWith('/api')
+        ? settings.ecosystemBaseUrl.substring(
+            0,
+            settings.ecosystemBaseUrl.length - '/api'.length,
+          )
+        : settings.ecosystemBaseUrl;
+
     return MerchantConfig.ecosystem(
       merchantId: merchantId,
-      baseUrl: settings.ecosystemBaseUrl.replaceAll(RegExp(r'/api$'), ''),
+      baseUrl: ecosystemBaseUrl,
       bearerToken: settings.ecosystemBearerToken,
       merchantName: name,
       merchantLogo: logo,
+      billingType: billingType,
       companyId: companyId ?? 0,
       channelId: channelId ?? 0,
       storeId: storeId ?? 0,
     );
+  }
+
+  static String _normalizeBillingType(dynamic value) {
+    final normalized = value?.toString().trim().toLowerCase() ?? '';
+    return normalized.isEmpty ? 'none' : normalized;
   }
 }

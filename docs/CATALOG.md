@@ -123,7 +123,7 @@ Authorization: Bearer {BEARER_TOKEN}
 - `patio_service` selecciona el proveedor Legacy.
 - Cualquier otro valor selecciona Ecosystem; el código lo identifica actualmente como `merchant_panel`.
 
-La configuración resultante contiene el identificador, nombre, logotipo, URL base, token y, cuando corresponde, los identificadores externos requeridos por Ecosystem.
+La configuración resultante contiene el identificador, nombre, logotipo, tipo de facturación (`billingType`), URL base, token y, cuando corresponde, los identificadores externos requeridos por Ecosystem.
 
 ### 6.2 Proveedor Legacy
 
@@ -266,6 +266,18 @@ La visibilidad de un producto se calcula en este orden:
 - Restablece el modo a `all`.
 
 Los endpoints que modifican y restablecen filtros, sus cuerpos JSON y su persistencia se documentan en [API.md](API.md).
+
+---
+
+## 9. Presentación visual del producto
+
+### Imagen adaptativa
+
+`AdaptiveProductImage` resuelve el tamaño real de la imagen remota antes de renderizarla. Si la diferencia de aspecto entre la imagen y su contenedor supera un umbral (`_maxCompatibleAspectDifference = 1.55`), el widget cambia a un layout protegido: fondo borroso escalado con `ImageFilter.blur`, una capa semitransparente y la imagen centrada con `BoxFit.contain`. Esto evita que productos con fotos muy verticales u horizontales sufran recortes excesivos con `BoxFit.cover`. Si la imagen es compatible, utiliza `BoxFit.cover` de forma convencional mediante `AppImage`.
+
+### Indicadores del carrusel
+
+`ProductCarousel` limita la cantidad de indicadores visibles a un máximo de 7. Cuando el catálogo supera ese tamaño, solo se muestra una ventana deslizante centrada en el producto activo. Esto mantiene la barra de indicadores compacta incluso con colecciones grandes.
 
 ---
 

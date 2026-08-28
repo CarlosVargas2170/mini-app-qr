@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/merchant.dart';
 import '../../domain/entities/product.dart';
 
 enum HomeStatus { initial, loading, loaded, error }
@@ -17,6 +18,7 @@ class HomeState extends Equatable {
   final String merchantName;
   final List<String> merchantNames;
   final List<int> merchantIds;
+  final Map<int, Merchant> merchantsById;
   final Map<String, int> cartQuantities;
   final String? cartSyncMessage;
   final int cartSyncRevision;
@@ -38,6 +40,7 @@ class HomeState extends Equatable {
     this.merchantName = 'Mi Tienda',
     this.merchantNames = const [],
     this.merchantIds = const [],
+    this.merchantsById = const {},
     this.cartQuantities = const {},
     this.cartSyncMessage,
     this.cartSyncRevision = 0,
@@ -66,12 +69,18 @@ class HomeState extends Equatable {
 
   /// Obtiene el nombre del merchant para un producto especifico.
   String getMerchantNameForProduct(Product product) {
+    final merchant = merchantsById[product.merchantId];
+    if (merchant != null) return merchant.name;
+
     final index = merchantIds.indexOf(product.merchantId);
     if (index >= 0 && index < merchantNames.length) {
       return merchantNames[index];
     }
     return merchantName; // Fallback
   }
+
+  bool merchantUsesBilling(int merchantId) =>
+      merchantsById[merchantId]?.usesBilling ?? false;
 
   HomeState copyWith({
     HomeStatus? status,
@@ -81,6 +90,7 @@ class HomeState extends Equatable {
     String? merchantName,
     List<String>? merchantNames,
     List<int>? merchantIds,
+    Map<int, Merchant>? merchantsById,
     Map<String, int>? cartQuantities,
     String? cartSyncMessage,
     int? cartSyncRevision,
@@ -96,6 +106,7 @@ class HomeState extends Equatable {
       merchantName: merchantName ?? this.merchantName,
       merchantNames: merchantNames ?? this.merchantNames,
       merchantIds: merchantIds ?? this.merchantIds,
+      merchantsById: merchantsById ?? this.merchantsById,
       cartQuantities: cartQuantities ?? this.cartQuantities,
       cartSyncMessage: cartSyncMessage ?? this.cartSyncMessage,
       cartSyncRevision: cartSyncRevision ?? this.cartSyncRevision,
@@ -114,6 +125,7 @@ class HomeState extends Equatable {
         merchantName,
         merchantNames,
         merchantIds,
+        merchantsById,
         cartQuantities,
         cartSyncMessage,
         cartSyncRevision,

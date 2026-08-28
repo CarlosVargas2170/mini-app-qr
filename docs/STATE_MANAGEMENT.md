@@ -175,14 +175,15 @@ Al presionar **PAGAR PEDIDO CON QR**:
 
 1. Se verifica que el carrito no esté vacío (`cartTotalItems > 0`).
 2. Se pausa el timeout de sesión del `HomeCubit`.
-3. Se fuerza un polling de productos para reconciliar el carrito con el catálogo más reciente.
-4. Si el carrito fue ajustado o quedó vacío tras el polling, se reanuda el timeout y se muestra el aviso de sincronización.
-5. Se cierra cualquier Cubit de pago anterior.
-6. Se crea un `QrPaymentCubit` nuevo.
-7. Se construye `cartItems` con todos los productos del carrito, sus cantidades y precios actuales.
-8. Se construye `menuData` con el nombre del merchant y los datos visibles de cada producto.
-9. Se navega a `QrPaymentPage`, entregándole el Cubit, el **merchant del primer producto**, el monto total y los datos anteriores.
-10. Después del primer frame, la página llama a `startQrPayment()`.
+3. Se presenta `BillingFlowDialog` para que el usuario elija si requiere factura. Si cierra el diálogo sin continuar, se aborta el flujo y se reanuda el timeout.
+4. Se fuerza un polling de productos para reconciliar el carrito con el catálogo más reciente.
+5. Si el carrito fue ajustado o quedó vacío tras el polling, se reanuda el timeout y se muestra el aviso de sincronización.
+6. Se cierra cualquier Cubit de pago anterior.
+7. Se crea un `QrPaymentCubit` nuevo.
+8. Se construye `cartItems` con todos los productos del carrito, sus cantidades y precios actuales.
+9. Se construye `menuData` con el nombre del merchant y los datos visibles de cada producto.
+10. Se navega a `QrPaymentPage`, entregándole el Cubit, el **merchant del primer producto**, el monto total, los datos de facturación (`nit`, `businessName`) y los datos anteriores.
+11. Después del primer frame, la página llama a `startQrPayment()`.
 
 > **Nota sobre multi-merchant:** actualmente el `merchantId` usado para validar productos y crear la orden proviene del primer producto del carrito. Esto puede ser una limitación si el carrito contiene productos de distintos merchants.
 
