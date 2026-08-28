@@ -123,7 +123,7 @@ Authorization: Bearer {BEARER_TOKEN}
 - `patio_service` selecciona el proveedor Legacy.
 - Cualquier otro valor selecciona Ecosystem; el código lo identifica actualmente como `merchant_panel`.
 
-La configuración resultante contiene el identificador, nombre, logotipo, URL base, token y, cuando corresponde, los identificadores externos requeridos por Ecosystem.
+La configuración resultante contiene el identificador, nombre, logotipo, tipo de facturación (`billingType`), URL base, token y, cuando corresponde, los identificadores externos requeridos por Ecosystem.
 
 ### 6.2 Proveedor Legacy
 
