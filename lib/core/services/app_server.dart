@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../config/app_settings.dart';
 import 'audio_service.dart';
@@ -27,6 +28,7 @@ import 'ui_command_bus.dart';
 /// --- Robot / UI ---
 /// - `POST /proximity/near` -> Muestra video de atraccion
 /// - `POST /greet`          -> Muestra producto + reproduce saludo
+/// - `POST /greet/audio`    -> Muestra producto + reproduce el asset indicado
 /// - `POST /product`        -> Muestra solo el producto
 /// - `POST /proximity/away` -> Vuelve a reposo
 /// - `POST /carrusel/product` -> Idéntico a /proximity/near
@@ -270,6 +272,55 @@ class AppServer {
         'audio': played,
         'message': played
             ? 'Mostrando producto y reproduciendo saludo'
+            : 'Mostrando producto (audio omitido por cooldown)',
+      });
+      return;
+    }
+
+    if (path == '/greet/audio' && method == 'POST') {
+      final asset = normalizeAudioAssetPath(
+        request.uri.queryParameters['asset'],
+      );
+      if (asset == null) {
+        _sendJson(response, 400, {
+          'success': false,
+          'message': 'Falta un asset válido. Usa ?asset=audio/nombre.wav',
+        });
+        return;
+      }
+
+      try {
+        await rootBundle.load('assets/$asset');
+      } catch (_) {
+        _sendJson(response, 404, {
+          'success': false,
+          'asset': asset,
+          'message': 'El audio no existe en assets/audio/',
+        });
+        return;
+      }
+
+      final params = request.uri.queryParameters;
+      final force = params['force'] == 'true';
+      final displayText = params['displayText'];
+      final showOverlay = params['showOverlay'] != 'false';
+
+      UiCommandBus.emit(const ShowProductResetCarousel());
+      AudioService.setRemoteCall(true);
+      final played = await AudioService.play(
+        asset,
+        force: force,
+        displayText: displayText,
+        showOverlay: showOverlay,
+      );
+
+      _sendJson(response, 200, {
+        'success': true,
+        'mode': 'product',
+        'audio': played,
+        'asset': asset,
+        'message': played
+            ? 'Mostrando producto y reproduciendo "$asset"'
             : 'Mostrando producto (audio omitido por cooldown)',
       });
       return;
@@ -779,6 +830,38 @@ class AppServer {
     _server = null;
     if (kDebugMode) debugPrint('[AppServer] Servidor detenido.');
   }
+}
+
+/// Normaliza una ruta de asset de audio recibida por HTTP.
+///
+/// [AudioService] usa rutas relativas a `assets/`, por ejemplo
+/// `audio/kiky/saludo.wav`. También se acepta el prefijo `assets/` para hacer
+/// el endpoint más tolerante, pero nunca rutas absolutas ni segmentos `..`.
+@visibleForTesting
+String? normalizeAudioAssetPath(String? rawPath) {
+  if (rawPath == null) return null;
+
+  var path = rawPath.trim().replaceAll('\\', '/');
+  if (path.startsWith('assets/')) path = path.substring('assets/'.length);
+
+  if (!path.startsWith('audio/') || path.length == 'audio/'.length) {
+    return null;
+  }
+  if (path.startsWith('/') || path.contains('://') || path.contains(':')) {
+    return null;
+  }
+
+  final segments = path.split('/');
+  if (segments
+      .any((segment) => segment.isEmpty || segment == '.' || segment == '..')) {
+    return null;
+  }
+
+  const supportedExtensions = {'.wav', '.mp3', '.m4a', '.ogg'};
+  final lowerPath = path.toLowerCase();
+  if (!supportedExtensions.any(lowerPath.endsWith)) return null;
+
+  return path;
 }
 
 /// Construye la configuracion que puede exponerse mediante la API local.

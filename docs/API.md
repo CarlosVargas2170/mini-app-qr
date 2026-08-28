@@ -22,6 +22,7 @@ La aplicación escucha en `http://{BASE_URL_VPN}:{PORT_VPN}`. Todas las respuest
 | POST | `/play-coffee` | Reproduce aviso de café listo. |
 | POST | `/proximity/near` | Muestra atracción. |
 | POST | `/greet` | Muestra primer producto y reproduce saludo. |
+| POST | `/greet/audio` | Muestra primer producto y reproduce un audio indicado. |
 | POST | `/product` | Muestra productos sin audio. |
 | POST | `/cancel-payment` | Cancela el pago visible. |
 | POST | `/proximity/away` | Muestra reposo. |
@@ -72,10 +73,26 @@ Query parameters: `asset` obligatorio; `volume` (default `1.0`), `force` (`true`
 
 - `/proximity/near` → `ShowAttract`.
 - `/greet` → `ShowProductResetCarousel` y audio de pregunta.
+- `/greet/audio?asset=audio/saludo.wav` → `ShowProductResetCarousel` y el audio indicado.
 - `/product` → `ShowProduct`.
 - `/cancel-payment` → `CancelPayment`.
 - `/proximity/away` → `ShowIdle`.
 - `/carrusel/product` → `ShowAttract`.
+
+### `POST /greet/audio`
+
+Muestra el carrusel, lo reinicia al primer producto y reproduce un asset de
+`assets/audio/`:
+
+```text
+POST /greet/audio?asset=audio/kiky/Hola_deseas_un_Brown.wav
+```
+
+Parámetros opcionales: `force=true`, `displayText=Hola` y
+`showOverlay=false`. También acepta rutas con prefijo `assets/audio/`, que se
+normalizan antes de reproducirse. Una ruta ausente, externa, con `..` o con
+extensión distinta de `.wav`, `.mp3`, `.m4a` u `.ogg` responde `400`. Un asset
+con ruta válida que no exista dentro de la aplicación responde `404`.
 
 Las respuestas confirman que el comando fue emitido, no que Flutter ya terminó de procesarlo.
 

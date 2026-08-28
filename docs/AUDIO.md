@@ -51,6 +51,8 @@ Los textos predeterminados proceden de `AudioMessages`.
 ## 6. Integración con flujos
 
 - `/greet` y `/play-question` muestran el primer producto y reproducen pregunta.
+- `/greet/audio?asset=audio/...` muestra el primer producto y reproduce el
+  asset indicado.
 - Un pago confirmado en `QrPaymentPage` reproduce agradecimiento.
 - El panel QR embebido también reproduce audio en su flujo posterior al éxito.
 - Los demás audios pueden dispararse mediante endpoints especializados o `/audio/play`.
