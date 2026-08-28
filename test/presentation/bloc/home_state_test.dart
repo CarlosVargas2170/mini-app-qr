@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mini_app_qr/domain/entities/merchant.dart';
 import 'package:mini_app_qr/domain/entities/product.dart';
 import 'package:mini_app_qr/presentation/bloc/home_state.dart';
 
@@ -51,6 +52,29 @@ void main() {
 
       expect(state.quantityFor(coffee), 1);
       expect(state.quantityFor(otherMerchantCoffee), 0);
+    });
+  });
+
+  group('HomeState facturacion', () {
+    test('resuelve la politica por merchantId', () {
+      final state = HomeState(
+        merchantsById: const {
+          53: Merchant(
+            id: 53,
+            name: 'Sin factura',
+            billingType: 'none',
+          ),
+          99: Merchant(
+            id: 99,
+            name: 'Con factura',
+            billingType: 'merchant_system',
+          ),
+        },
+      );
+
+      expect(state.merchantUsesBilling(53), isFalse);
+      expect(state.merchantUsesBilling(99), isTrue);
+      expect(state.merchantUsesBilling(404), isFalse);
     });
   });
 }

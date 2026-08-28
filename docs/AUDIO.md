@@ -63,6 +63,18 @@ Existe una función `_boostLinuxVolume`, pero las instrucciones `pactl` están c
 
 Los assets registrados por Flutter son todo `assets/audio/`. Para agregar un archivo basta ubicarlo allí; si se cambia la estructura, debe actualizarse `pubspec.yaml`.
 
+### Assets adicionales disponibles
+
+Además de los métodos predefinidos, el proyecto incluye los siguientes assets de audio para uso genérico mediante `/audio/play` o `AudioService.play()`:
+
+| Asset | Ruta |
+| --- | --- |
+| `dance_to_sell` | `audio/dance_to_sell.wav` |
+| `reto_tokio` | `audio/reto_tokio.mp3` |
+| `aura_farming` | `audio/aura_farming.mp3` |
+| `chipi_chipi_chapa` | `audio/chipi_chipi_chapa.mp3` |
+| `fahh` | `audio/fahh.mp3` |
+
 ## 8. API
 
 Los cuerpos, parámetros y respuestas de `/audio/play`, `/play-audio`, `/audio/stop` y endpoints predefinidos están en [API.md](API.md).

@@ -12,6 +12,7 @@ import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
+import '../widgets/billing_dialogs.dart';
 import '../widgets/floating_cart.dart';
 import '../widgets/product_carousel.dart';
 import '../widgets/product_quantity_selector.dart';
@@ -580,6 +581,18 @@ class _HomeViewState extends State<_HomeView> {
     }
 
     final products = List.of(refreshedState.cartProducts);
+    final firstProduct = products.first;
+
+    final billingDetails = refreshedState
+            .merchantUsesBilling(firstProduct.merchantId)
+        ? await _collectBillingDetails()
+        : const BillingFlowResult.withoutInvoice();
+    if (!mounted) return;
+    if (billingDetails == null) {
+      _isPreparingPayment = false;
+      homeCubit.resumeCustomerSessionTimeout();
+      return;
+    }
 
     // Snapshot del carrito: orden y QR salen de la misma seleccion.
     final cartItems = products
@@ -599,7 +612,6 @@ class _HomeViewState extends State<_HomeView> {
               'description': product.description,
             })
         .toList(growable: false);
-    final firstProduct = products.first;
     final amount = products.fold<double>(
       0,
       (total, product) =>
@@ -620,6 +632,8 @@ class _HomeViewState extends State<_HomeView> {
             merchantId: firstProduct.merchantId,
             productId: firstProduct.id,
             amount: amount,
+            nit: billingDetails.nit,
+            businessName: billingDetails.businessName,
             cartItems: cartItems,
             menuData: {
               'merchantName':
@@ -657,6 +671,14 @@ class _HomeViewState extends State<_HomeView> {
       homeCubit.resumeCustomerSessionTimeout();
       _showCartSyncNoticeIfNeeded(this.context, homeCubit.state);
     });
+  }
+
+  Future<BillingFlowResult?> _collectBillingDetails() {
+    return showDialog<BillingFlowResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const BillingFlowDialog(),
+    );
   }
 }
 

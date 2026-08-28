@@ -119,6 +119,35 @@ void main() {
     expect(cubit.state.errorMessage, contains('no está disponible'));
     expect(paymentRepository.startCalls, 0);
   });
+
+  test('propaga los datos de facturacion al crear la orden', () async {
+    await cubit.startQrPayment(
+      merchantId: 53,
+      productId: 1,
+      customerName: 'Robot',
+      phoneNumber: '',
+      whereEat: 'dineIn',
+      amount: 10,
+      nit: ' 1234567890123 ',
+      businessName: ' Empresa SRL ',
+      autoPoll: false,
+      cartItems: const [
+        {'id': 1, 'name': 'Cafe', 'quantity': 1, 'price': 10.0},
+      ],
+      menuData: const {
+        'categories': [
+          {
+            'products': [
+              {'id': 1, 'name': 'Cafe', 'price': 10.0},
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(paymentRepository.lastNit, ' 1234567890123 ');
+    expect(paymentRepository.lastBusinessName, ' Empresa SRL ');
+  });
 }
 
 class _FakeProductRepository implements ProductRepository {
@@ -143,6 +172,8 @@ class _FakeQrPaymentRepository implements QrPaymentRepository {
   int startCalls = 0;
   double? lastAmount;
   List<Map<String, dynamic>>? lastCartItems;
+  String? lastNit;
+  String? lastBusinessName;
 
   @override
   Future<Order> startQrPayment({
@@ -153,11 +184,15 @@ class _FakeQrPaymentRepository implements QrPaymentRepository {
     required List<Map<String, dynamic>> cartItems,
     required Map<String, dynamic>? menuData,
     required double amount,
+    String? nit,
+    String? businessName,
     String? paymentReferenceOverride,
   }) async {
     startCalls++;
     lastAmount = amount;
     lastCartItems = cartItems;
+    lastNit = nit;
+    lastBusinessName = businessName;
     return const Order(orderId: 123, qrBase64: 'qr');
   }
 

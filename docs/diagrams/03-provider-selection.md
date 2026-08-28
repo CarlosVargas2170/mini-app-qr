@@ -12,7 +12,8 @@ flowchart TD
     Repo --> Factory[ProductDataSourceFactory]
     Factory --> MerchantFactory[MerchantConfigFactory]
     MerchantFactory --> Config[GET /merchants/{id}]
-    Config --> System{externalSystem == patio_service?}
+    Config --> Extract[Extraer configuración:<br/>nombre, logo, billingType,<br/>URL, token, IDs externos]
+    Extract --> System{externalSystem == patio_service?}
     System -- Sí --> Legacy[Crear LegacyProductDataSource]
     System -- No --> Ecosystem[Crear EcosystemProductDataSource]
     Legacy --> Store[Guardar por merchantId en caché interna]
@@ -83,3 +84,4 @@ partition "Ecosystem" {
 - Cuando cambie la lógica de detección (por ejemplo, ya no se use `patio_service`).
 - Cuando se modifique la estrategia de cacheo de data sources.
 - Cuando cambien las rutas de Ecosystem o Legacy.
+- Cuando se agreguen o modifiquen campos de configuración del merchant (por ejemplo, `billingType`).

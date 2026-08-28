@@ -22,6 +22,8 @@ class QrPaymentScreen extends StatefulWidget {
   final String whereEat;
   final List<Map<String, dynamic>> cartItems;
   final Map<String, dynamic>? menuData;
+  final String? nit;
+  final String? businessName;
   final String? paymentReferenceOverride;
 
   final String title;
@@ -43,6 +45,8 @@ class QrPaymentScreen extends StatefulWidget {
     this.whereEat = 'dineIn',
     required this.cartItems,
     this.menuData,
+    this.nit,
+    this.businessName,
     this.paymentReferenceOverride,
     this.title = 'ESCANEA PARA PAGAR',
     this.subtitle = 'Usa tu app de pagos favorita',
@@ -82,6 +86,8 @@ class _QrPaymentScreenState extends State<QrPaymentScreen> {
             whereEat: widget.whereEat,
             cartItems: widget.cartItems,
             menuData: widget.menuData,
+            nit: widget.nit,
+            businessName: widget.businessName,
             paymentReferenceOverride: widget.paymentReferenceOverride,
           );
     });

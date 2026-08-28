@@ -8,6 +8,7 @@ import '../datasources/qr_payment_remote_data_source.dart';
 import '../models/place_order_request.dart';
 import '../models/qr_models.dart';
 import '../models/update_order_request.dart';
+
 class QrPaymentRepositoryImpl implements QrPaymentRepository {
   final QrPaymentRemoteDataSource _remote;
 
@@ -22,18 +23,31 @@ class QrPaymentRepositoryImpl implements QrPaymentRepository {
     required List<Map<String, dynamic>> cartItems,
     required Map<String, dynamic>? menuData,
     required double amount,
+    String? nit,
+    String? businessName,
     String? paymentReferenceOverride,
   }) async {
     final request = PlaceOrderRequestDto(
       merchantId: merchantId,
-      customerName: customerName.trim().isNotEmpty ? customerName.trim() : AppSettings.customerName,
+      customerName: customerName.trim().isNotEmpty
+          ? customerName.trim()
+          : AppSettings.customerName,
       phoneNumber: phoneNumber,
       whereEat: whereEat.isNotEmpty ? whereEat : 'dineIn',
       paymentMethodType: 'qr',
       cartItems: cartItems,
       menuData: menuData,
+      nit: nit,
+      businessName: businessName,
       paymentReferenceOverride: paymentReferenceOverride,
     );
+
+    debugPrint(
+        '[QR_REPO] ════════════════════════════════════════════════════════════');
+    debugPrint('[QR_REPO] ENVIANDO ORDEN COMPLETA:');
+    debugPrint('[QR_REPO] ${request.toJson()}');
+    debugPrint(
+        '[QR_REPO] ════════════════════════════════════════════════════════════');
 
     final orderResponse = await _remote.placeOrderPending(request);
     final orderId = orderResponse.orderId;

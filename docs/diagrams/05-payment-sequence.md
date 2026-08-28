@@ -15,12 +15,15 @@ sequenceDiagram
     participant Audio as Audio/Counter
 
     User->>Home: Pulsar pagar
-    Home->>Home: Pausar timeout y forcePoll
     Home->>Home: Validar carrito no vacío
-
-    alt Carrito cambió o quedó vacío tras poll
-        Home-->>User: Mostrar aviso y permanecer en catálogo
-    else Carrito consistente
+    Home->>Home: Mostrar BillingFlowDialog
+    alt Usuario cancela o cierra diálogo
+        Home-->>User: Reanudar timeout y permanecer en catálogo
+    else Usuario continúa (con o sin factura)
+        Home->>Home: Pausar timeout y forcePoll
+        alt Carrito cambió o quedó vacío tras poll
+            Home-->>User: Mostrar aviso y permanecer en catálogo
+        else Carrito consistente
         Home->>Pay: Crear Cubit y navegar a QrPaymentPage
         Note over Home,Pay: merchantId = primer producto del carrito
         
@@ -82,12 +85,15 @@ participant "Payments API" as Payments
 participant "Audio/Counter" as Audio
 
 User -> Home : Pulsar pagar
-Home -> Home : Pausar timeout y forcePoll
 Home -> Home : Validar carrito no vacío
-
-alt Carrito cambió o quedó vacío tras poll
-    Home --> User : Mostrar aviso y permanecer en catálogo
-else Carrito consistente
+Home -> Home : Mostrar BillingFlowDialog
+alt Usuario cancela o cierra diálogo
+    Home --> User : Reanudar timeout y permanecer en catálogo
+else Usuario continúa (con o sin factura)
+    Home -> Home : Pausar timeout y forcePoll
+    alt Carrito cambió o quedó vacío tras poll
+        Home --> User : Mostrar aviso y permanecer en catálogo
+    else Carrito consistente
     Home -> Pay : Crear Cubit y navegar a QrPaymentPage
     note over Home, Pay : merchantId = primer producto del carrito
     

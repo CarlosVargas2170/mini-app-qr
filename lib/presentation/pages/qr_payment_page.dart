@@ -21,6 +21,8 @@ class QrPaymentPage extends StatefulWidget {
   final String whereEat;
   final List<Map<String, dynamic>> cartItems;
   final Map<String, dynamic>? menuData;
+  final String? nit;
+  final String? businessName;
   final String? paymentReferenceOverride;
   final VoidCallback? onSuccess;
 
@@ -34,6 +36,8 @@ class QrPaymentPage extends StatefulWidget {
     this.whereEat = 'dineIn',
     required this.cartItems,
     this.menuData,
+    this.nit,
+    this.businessName,
     this.paymentReferenceOverride,
     this.onSuccess,
   });
@@ -66,6 +70,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             whereEat: widget.whereEat,
             cartItems: widget.cartItems,
             menuData: widget.menuData,
+            nit: widget.nit,
+            businessName: widget.businessName,
             paymentReferenceOverride: widget.paymentReferenceOverride,
           );
     });
