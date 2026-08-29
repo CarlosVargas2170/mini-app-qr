@@ -82,7 +82,6 @@ Copia los 4 archivos a cualquier servidor web (Nginx, Apache, S3, GitHub Pages, 
 | `POST` | `/proximity/near` | Muestra video de atraccion |
 | `POST` | `/proximity/away` | Vuelve a reposo |
 | `POST` | `/greet` | Muestra producto + reproduce saludo |
-| `POST` | `/greet/audio?asset=audio/...` | Muestra producto + reproduce audio personalizado |
 | `POST` | `/product` | Muestra solo el producto |
 | `POST` | `/play-question` | Reproduce audio de pregunta |
 | `POST` | `/play-thanks` | Reproduce audio de agradecimiento |

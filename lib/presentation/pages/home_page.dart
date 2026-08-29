@@ -341,12 +341,12 @@ class _HomeViewState extends State<_HomeView> {
                     ),
                     const Positioned(
                       left: 0,
-                      bottom: -4,
+                      bottom: 8,
                       child: _NexusTechnologySignature(),
                     ),
                     Positioned(
                       right: -20,
-                      bottom: -20,
+                      bottom: -8,
                       child: _buildFloatingCart(context, state),
                     ),
                   ],
