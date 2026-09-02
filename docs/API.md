@@ -191,7 +191,27 @@ Modos válidos: `all`, `blacklist`, `whitelist`. `reset: true` limpia filtros. `
 
 ### Órdenes y QR
 
-`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia, cliente y, opcionalmente, datos de facturación (`nit` y `businessName`). El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `name`, `quantity`, `unitPrice` y `totalPrice`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
+`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia, cliente y, opcionalmente, datos de facturación (`nit` y `businessName`). El body incluye en primer nivel `cart` (con `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`), `paymentMethod`, `whereEat`, `paymentReference`, `customerName` y, opcionalmente, `phoneNumber`, `nit` y `businessName`.
+
+`metadataMerchant` contiene `id`, `name` y `urlLogo` del merchant. Cada ítem del carrito se serializa como:
+
+```json
+{
+  "id": "totem-<nombre-normalizado>-<timestamp>",
+  "product": {
+    "id": 457969,
+    "name": "Café",
+    "price": 12.0,
+    "urlImage": "https://...",
+    "description": "..."
+  },
+  "quantity": 1,
+  "selectedToppings": [],
+  "totalPrice": 12.0
+}
+```
+
+El `id` del ítem es un identificador sintético (`totem-...-<timestamp>`), no el identificador del producto; el identificador real y el precio viven dentro del objeto anidado `product`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
 
 `POST /payments/qr/generate-payment`:
 

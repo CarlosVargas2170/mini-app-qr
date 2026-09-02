@@ -65,7 +65,7 @@ Los productos de todos los merchants exitosos se agregan a una sola lista. Cada 
 - Resolver el nombre de la tienda mostrado o enviado en `menuData`.
 - Agrupar productos por comercio en el endpoint interno `GET /products`.
 
-`merchantIds` y `merchantNames` se mantienen como listas alineadas. `HomeState.getMerchantNameForProduct()` busca la posición del `merchantId` y devuelve el nombre ubicado en la misma posición. Si no encuentra una coincidencia, usa el nombre general combinado como fallback.
+`merchantIds` y `merchantNames` se mantienen como listas alineadas, y además existe el mapa `merchantsById` que asocia cada `merchantId` con su entidad `Merchant`. `HomeState.getMerchantNameForProduct()` busca primero en `merchantsById[merchantId]`; si no lo encuentra, ubica el `merchantId` en la lista y devuelve el nombre de la misma posición, y como último fallback usa el nombre general combinado.
 
 ---
 

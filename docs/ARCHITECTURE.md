@@ -162,7 +162,7 @@ mini-app-qr/
 │   │   ├── constants/
 │   │   ├── di/
 │   │   ├── services/
-│   │   └── ui/
+│   │   └── ui/themes/
 │   ├── data/
 │   │   ├── datasources/
 │   │   ├── factories/
@@ -205,7 +205,7 @@ mini-app-qr/
 - `constants/`: centraliza rutas o identificadores constantes, principalmente mensajes de audio (`AudioMessages`).
 - `di/`: compone las dependencias de la aplicación mediante un service locator manual (`ServiceLocator`).
 - `services/`: implementa el servidor local (`AppServer`), audio (`AudioService`), notificaciones de audio (`AudioNotificationService`), cachés (`ProductCache`), contador de ventas (`PaymentCounter`), estado de polling (`PaymentPollingStatus`) y comunicación por comandos (`UiCommandBus`).
-- `ui/`: contiene elementos visuales compartidos, como la paleta de colores (`AppColors`).
+- `ui/themes/`: contiene elementos visuales compartidos, como la paleta de colores (`AppColors`).
 
 ### 4.2 `lib/data`
 
@@ -346,6 +346,7 @@ Representa la información mínima de un comercio:
 - `id`: identificador interno.
 - `name`: nombre que puede mostrarse en la interfaz o incluirse en una orden.
 - `urlLogo`: logotipo opcional.
+- `billingType`: tipo de facturación del comercio (`none` por defecto). El getter `usesBilling` devuelve `true` cuando el comercio tiene facturación habilitada, lo que determina si se solicita factura antes del pago.
 
 ### 7.3 Entidad `Order`
 
@@ -421,7 +422,7 @@ Los servicios singleton en memoria son:
 
 - `ProductCache`: catálogo completo para consultas HTTP.
 - `PaymentPollingStatus`: contexto y fase del pago visible (`idle`, `waiting`, `polling`, `success`, `failed`).
-- `PaymentCounter`: total de órdenes, total de unidades, monto acumulado, últimas 50 órdenes y resumen acumulado por `merchantId` y `productId`.
+- `PaymentCounter`: total de órdenes, total de unidades, monto acumulado y resumen acumulado por `merchantId` y `productId`. Retiene en memoria las últimas 50 órdenes, pero `toJson()` expone solo las 10 más recientes (`recent`).
 - `AudioService`: reproductor único con cooldown anti-spam y soporte para llamadas remotas.
 - `AudioNotificationService`: stream broadcast para overlays visuales de audio.
 
@@ -445,6 +446,8 @@ Su estado se pierde al reiniciar el proceso.
 - La validación de productos antes del pago consulta la API por cada ítem del carrito, lo que aumenta la latencia de inicio proporcionalmente al número de productos.
 - El panel embebido (`ProductQrPanelWrapper`) mantiene su caché por `{merchantId}_{productId}`; el flujo multi-producto de la página dedicada no utiliza esta caché.
 - `assets/videos/` no está registrado en `pubspec.yaml`.
+- `lib/data/product_remote_data_source.dart` es código huérfano: define una clase `Product` y un `ProductRemoteDataSource` locales que duplican el proveedor Legacy y no se importan en el código vigente.
+- `lib/presentation/widgets/audio_overlay_example.dart` es un widget de demostración que no está conectado a ningún flujo.
 - El argumento `port` de `AppServer` no controla el bind actual; prevalece `AppSettings().portVpn`.
 - La confirmación visual no espera que `completeOrder` termine correctamente.
 

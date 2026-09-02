@@ -8,12 +8,12 @@ Este documento describe el ciclo de vida completo del pago QR, desde la validaci
 
 ### 1.1 Datos de facturación
 
-Antes de iniciar la validación del carrito, el sistema presenta un diálogo de facturación (`BillingFlowDialog`). El usuario puede:
+La captura de facturación solo aplica cuando el merchant del primer producto tiene facturación habilitada (`merchantUsesBilling`). En ese caso, antes de iniciar la validación del carrito el sistema presenta un diálogo de facturación (`BillingFlowDialog`). El usuario puede:
 
 - Elegir **"Sin factura"** para continuar sin datos adicionales.
 - Elegir **"Con factura"** para ingresar NIT y razón social.
 
-Si el usuario cierra el diálogo sin seleccionar una opción, el flujo de pago se aborta y se reanuda el timeout de sesión del catálogo. Los datos capturados se propagan hasta `QrPaymentCubit.startQrPayment` y se incluyen en el payload de `POST /orders/create-pending` como `nit` y `businessName`.
+Si el merchant no factura, se continúa directamente sin datos de facturación. Si el usuario cierra el diálogo sin seleccionar una opción, el flujo de pago se aborta y se reanuda el timeout de sesión del catálogo. Los datos capturados se propagan hasta `QrPaymentCubit.startQrPayment` y se incluyen en el payload de `POST /orders/create-pending` como `nit` y `businessName`.
 
 ### 1.2 Validación de productos y generación del QR
 

@@ -5,9 +5,11 @@ Aplicación Flutter de autoservicio/tótem para pantalla completa. Muestra un ca
 ## Tecnologías
 
 - **Flutter** + **Dart 3** (desktop, orientado a Linux)
-- **flutter_bloc** (Cubits)
+- **flutter_bloc** (Cubits) + **equatable**
 - **dio** (cliente HTTP)
+- **flutter_dotenv** (variables de entorno)
 - **audioplayers** + **window_manager**
+- **carousel_slider** + **cached_network_image** (carrusel e imágenes)
 
 ## Requisitos
 

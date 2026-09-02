@@ -39,7 +39,7 @@ El estado guarda:
 - Catálogo visible.
 - Índice y producto actualmente seleccionados.
 - Nombre general y nombres individuales de merchants.
-- IDs de merchants cargados exitosamente.
+- IDs de merchants cargados exitosamente, y el mapa `merchantsById` (`Map<int, Merchant>`) con la información de cada comercio.
 - Cantidades del carrito (`cartQuantities`), mapeadas por clave `merchantId_productId`.
 - Mensaje de sincronización del carrito (`cartSyncMessage`) y su revisión (`cartSyncRevision`).
 - Mensaje de error.
@@ -52,6 +52,7 @@ El estado guarda:
 - `cartProducts`: lista de productos con cantidad mayor a cero.
 - `cartTotalItems`: suma de unidades en el carrito.
 - `cartTotal`: monto total calculado con precios y cantidades actuales.
+- `merchantUsesBilling(merchantId)`: indica si el merchant correspondiente tiene facturación habilitada (`billingType != 'none'`).
 
 `HomeState` extiende `Equatable`, de modo que dos estados se comparan por el valor de sus propiedades. Sus colecciones se tratan como datos del estado y se reemplazan al actualizar el catálogo.
 
@@ -175,7 +176,7 @@ Al presionar **PAGAR PEDIDO CON QR**:
 
 1. Se verifica que el carrito no esté vacío (`cartTotalItems > 0`).
 2. Se pausa el timeout de sesión del `HomeCubit`.
-3. Se presenta `BillingFlowDialog` para que el usuario elija si requiere factura. Si cierra el diálogo sin continuar, se aborta el flujo y se reanuda el timeout.
+3. Si el merchant del primer producto tiene facturación habilitada (`merchantUsesBilling`), se presenta `BillingFlowDialog` para que el usuario elija si requiere factura. Si el merchant no factura, se continúa directamente sin datos de facturación. Si el usuario cierra el diálogo sin continuar, se aborta el flujo y se reanuda el timeout.
 4. Se fuerza un polling de productos para reconciliar el carrito con el catálogo más reciente.
 5. Si el carrito fue ajustado o quedó vacío tras el polling, se reanuda el timeout y se muestra el aviso de sincronización.
 6. Se cierra cualquier Cubit de pago anterior.

@@ -26,18 +26,18 @@
 
 Los tokens vacíos permiten arrancar, pero `AppSettings.isConfigured` exige `BASE_URL`, `BEARER_TOKEN`, al menos un merchant y `PRODUCT_ID != 0`. El flujo principal no consulta actualmente `isConfigured` antes de iniciar.
 
-## 3. Plantilla segura
+## 3. Plantilla `.env_example`
 
-`.env_example` debe contener nombres y ejemplos no sensibles:
+El archivo `.env_example` versionado contiene actualmente:
 
 ```env
-BASE_URL=https://api.example.com/api
+BASE_URL=https://api-totem.nexuspatiotech.com/api
 BEARER_TOKEN=
-ECOSYSTEM_BASE_URL=https://merchant-api.example.com
+ECOSYSTEM_BASE_URL=https://api-merchant.nexuspatiotech.com
 ECOSYSTEM_BEARER_TOKEN=
-MERCHANT_IDS=53,54
-PRODUCT_ID=1000
-BASE_URL_VPN=100.x.x.x
+MERCHANT_IDS=53
+PRODUCT_ID=457969
+BASE_URL_VPN=
 PORT_VPN=5050
 NAME_MESERO=Robot Mesero
 QR_EXPIRATION_MINUTES=3
@@ -45,6 +45,8 @@ PRODUCT_POLLING_STALE_SECONDS=60
 MAX_CART_ITEM_QUANTITY=10
 CUSTOMER_SESSION_TIMEOUT_SECONDS=60
 ```
+
+> **Atención:** este archivo contiene las URLs de producción reales. Según la política de seguridad, los valores de ejemplo deberían ser ficticios; conviene reemplazar `BASE_URL` y `ECOSYSTEM_BASE_URL` por valores de ejemplo (p. ej. `https://api.example.com/api`) antes de distribuir el repositorio públicamente.
 
 `.env` está declarado como asset en `pubspec.yaml`: sus valores se incluyen en el bundle compilado. No debe considerarse un almacén secreto fuerte. Si los tokens son sensibles, conviene entregar credenciales de corta duración o usar almacenamiento/inyectado de secretos apropiado para el entorno.
 
