@@ -251,7 +251,7 @@ class _HomeViewState extends State<_HomeView> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildProductInfo(product),
+              _buildProductInfo(product, state),
               const SizedBox(height: 12),
               _buildQuantitySelector(context, state),
               const SizedBox(height: 24),
@@ -273,6 +273,9 @@ class _HomeViewState extends State<_HomeView> {
 
   Widget _buildWideLayout(BuildContext context, HomeState state) {
     final product = state.currentProduct!;
+    final quantity = state.quantityFor(product);
+    final displayQuantity = quantity > 0 ? quantity : 1;
+    final displayPrice = product.price * displayQuantity;
     return Padding(
       padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
@@ -317,7 +320,7 @@ class _HomeViewState extends State<_HomeView> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${product.price} Bs',
+                      '${displayPrice.toStringAsFixed(2)} Bs',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.warning,
@@ -389,7 +392,10 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
-  Widget _buildProductInfo(dynamic product) {
+  Widget _buildProductInfo(dynamic product, HomeState state) {
+    final quantity = state.quantityFor(product);
+    final displayQuantity = quantity > 0 ? quantity : 1;
+    final displayPrice = product.price * displayQuantity;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -405,7 +411,7 @@ class _HomeViewState extends State<_HomeView> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${product.price} Bs',
+            '${displayPrice.toStringAsFixed(2)} Bs',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.warning,
