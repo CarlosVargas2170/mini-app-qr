@@ -3,6 +3,7 @@ import 'package:mini_app_qr/domain/entities/merchant.dart';
 import 'package:mini_app_qr/domain/entities/order.dart';
 import 'package:mini_app_qr/domain/entities/order_status.dart';
 import 'package:mini_app_qr/domain/entities/product.dart';
+import 'package:mini_app_qr/domain/entities/topping.dart';
 import 'package:mini_app_qr/domain/repositories/product_repository.dart';
 import 'package:mini_app_qr/domain/repositories/qr_payment_repository.dart';
 import 'package:mini_app_qr/domain/usecases/complete_order.dart';
@@ -86,8 +87,7 @@ void main() {
     expect(paymentRepository.lastCartItems![0]['price'], 12);
   });
 
-  test('no crea orden si uno de los productos ya no esta disponible',
-      () async {
+  test('no crea orden si uno de los productos ya no esta disponible', () async {
     productRepository.products = [coffee];
 
     await cubit.startQrPayment(
@@ -148,6 +148,128 @@ void main() {
     expect(paymentRepository.lastNit, ' 1234567890123 ');
     expect(paymentRepository.lastBusinessName, ' Empresa SRL ');
   });
+
+  group('revalidacion de toppings', () {
+    const toppingGroup = Topping(
+      id: 100,
+      name: 'Extras',
+      minLimit: 0,
+      maxLimit: 2,
+      type: ToppingType.checkbox,
+      subToppings: [SubTopping(id: 200, name: 'Vainilla', price: 3)],
+    );
+    const latte = Product(
+      id: 3,
+      merchantId: 53,
+      name: 'Latte',
+      description: '',
+      price: 15,
+      urlImage: '',
+      toppings: [toppingGroup],
+    );
+
+    Map<String, dynamic> itemWithVanillaTopping(
+            {required double capturedPrice}) =>
+        {
+          'id': 3,
+          'name': 'Latte',
+          'quantity': 1,
+          'price': capturedPrice,
+          'toppings': [
+            {
+              'toppingId': 100,
+              'toppingName': 'Extras',
+              'type': 'checkbox',
+              'minLimit': 0,
+              'maxLimit': 2,
+              'subToppings': [
+                {'id': 200, 'name': 'Vainilla', 'price': 3.0},
+              ],
+            },
+          ],
+          'extraQuantities': <String, dynamic>{},
+        };
+
+    test('recalcula el precio del addon con el precio fresco del topping',
+        () async {
+      const freshLatte = Product(
+        id: 3,
+        merchantId: 53,
+        name: 'Latte',
+        description: '',
+        price: 15,
+        urlImage: '',
+        toppings: [
+          Topping(
+            id: 100,
+            name: 'Extras',
+            minLimit: 0,
+            maxLimit: 2,
+            type: ToppingType.checkbox,
+            // El precio del sub-topping subio de 3 a 5 desde que se armo el
+            // pedido: la revalidacion debe usar este precio, no el capturado.
+            subToppings: [SubTopping(id: 200, name: 'Vainilla', price: 5)],
+          ),
+        ],
+      );
+      productRepository.products = [freshLatte];
+
+      await cubit.startQrPayment(
+        merchantId: 53,
+        productId: 3,
+        customerName: 'Robot',
+        phoneNumber: '',
+        whereEat: 'dineIn',
+        amount: 18, // 15 base + 3 addon capturado, ahora obsoleto
+        autoPoll: false,
+        cartItems: [itemWithVanillaTopping(capturedPrice: 18)],
+        menuData: const {
+          'categories': [
+            {
+              'products': [
+                {'id': 3, 'name': 'Latte', 'price': 15.0},
+              ],
+            },
+          ],
+        },
+      );
+
+      expect(cubit.state.status, QrPaymentStatus.qrReady);
+      // 15 (base fresco) + 5 (addon fresco) = 20
+      expect(cubit.state.amount, 20);
+      expect(paymentRepository.lastCartItems![0]['price'], 20);
+    });
+
+    test(
+        'falla el pago si el sub-topping elegido ya no existe en el producto fresco',
+        () async {
+      productRepository.products = [latte.copyWith(toppings: const [])];
+
+      await cubit.startQrPayment(
+        merchantId: 53,
+        productId: 3,
+        customerName: 'Robot',
+        phoneNumber: '',
+        whereEat: 'dineIn',
+        amount: 18,
+        autoPoll: false,
+        cartItems: [itemWithVanillaTopping(capturedPrice: 18)],
+        menuData: const {
+          'categories': [
+            {
+              'products': [
+                {'id': 3, 'name': 'Latte', 'price': 15.0},
+              ],
+            },
+          ],
+        },
+      );
+
+      expect(cubit.state.status, QrPaymentStatus.failed);
+      expect(cubit.state.errorMessage, contains('Latte'));
+      expect(paymentRepository.startCalls, 0);
+    });
+  });
 }
 
 class _FakeProductRepository implements ProductRepository {
@@ -156,8 +278,8 @@ class _FakeProductRepository implements ProductRepository {
   List<Product> products;
 
   @override
-  Future<Product> getProduct(int merchantId, int productId) async => products
-      .firstWhere((product) =>
+  Future<Product> getProduct(int merchantId, int productId) async =>
+      products.firstWhere((product) =>
           product.merchantId == merchantId && product.id == productId);
 
   @override

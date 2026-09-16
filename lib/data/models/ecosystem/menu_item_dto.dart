@@ -1,4 +1,6 @@
+import '../../../domain/entities/topping.dart';
 import 'category_dto.dart';
+import 'topping_group_dto.dart';
 
 /// Item individual del menú ecosystem.
 class MenuItemDto {
@@ -15,6 +17,7 @@ class MenuItemDto {
   final bool isHidden;
   final String? hiddenReason;
   final String? pccsStatus;
+  final List<ToppingGroupDto> toppingGroups;
 
   MenuItemDto({
     required this.idProduct,
@@ -30,6 +33,7 @@ class MenuItemDto {
     required this.isHidden,
     this.hiddenReason,
     this.pccsStatus,
+    this.toppingGroups = const [],
   });
 
   factory MenuItemDto.fromJson(Map<String, dynamic> json) {
@@ -47,6 +51,17 @@ class MenuItemDto {
       isHidden: json['isHidden'] == true,
       hiddenReason: json['hiddenReason'] as String?,
       pccsStatus: json['pccsStatus'] as String?,
+      toppingGroups: (json['toppingGroups'] as List<dynamic>? ?? const [])
+          .map((g) => ToppingGroupDto.fromJson(g as Map<String, dynamic>))
+          .toList(),
     );
+  }
+
+  /// Convierte los grupos del menú a toppings de dominio, descartando
+  /// grupos ocultos o sin opciones visibles. `null` si no queda ninguno.
+  List<Topping>? toToppings() {
+    final toppings =
+        toppingGroups.map((g) => g.toTopping()).whereType<Topping>().toList();
+    return toppings.isEmpty ? null : toppings;
   }
 }

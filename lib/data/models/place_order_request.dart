@@ -60,13 +60,16 @@ class PlaceOrderRequestDto {
       final name = (item['name'] as String? ?? '').trim();
       if (name.isEmpty) continue;
       final productId = (item['id'] as num?)?.toInt();
-      final key = productId != null && productId > 0
+      final baseKey = productId != null && productId > 0
           ? 'id:$productId'
           : 'name:${name.toLowerCase()}';
+      // Dos lineas del mismo producto con distinta configuracion de
+      // toppings deben quedar como items separados: la firma se agrega a
+      // la clave de agrupacion para no fusionarlas.
+      final key = '$baseKey|${_configurationSignature(item)}';
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
       if (grouped.containsKey(key)) {
-        grouped[key]!['quantity'] =
-            (grouped[key]!['quantity'] as int) + qty;
+        grouped[key]!['quantity'] = (grouped[key]!['quantity'] as int) + qty;
       } else {
         grouped[key] = Map<String, dynamic>.from(item)..['quantity'] = qty;
       }
@@ -77,30 +80,92 @@ class PlaceOrderRequestDto {
       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
       final itemProductId = (item['id'] as num?)?.toInt();
       final product = _findProduct(itemProductId, name);
-      final price = product?['price'] != null
+      final basePrice = product?['price'] != null
           ? (product!['price'] as num).toDouble()
           : (item['price'] as num?)?.toDouble() ?? 0.0;
-      final rawImage = product?['urlImage'] as String? ??
-          product?['image'] as String? ??
-          '';
-      final imageUrl =
-          rawImage.isNotEmpty ? rawImage : 'https://placeholder.com/product.png';
+      // `item['price']` ya incluye addons de toppings (recalculados y
+      // validados por QrPaymentCubit contra el catalogo fresco antes de
+      // llegar aqui); `basePrice` es solo el precio base para mostrar.
+      final unitPrice = (item['price'] as num?)?.toDouble() ?? basePrice;
+      final rawImage =
+          product?['urlImage'] as String? ?? product?['image'] as String? ?? '';
+      final imageUrl = rawImage.isNotEmpty
+          ? rawImage
+          : 'https://placeholder.com/product.png';
 
       return {
-        'id': 'totem-${name.replaceAll(' ', '-').toLowerCase()}-${DateTime.now().microsecondsSinceEpoch}',
+        'id':
+            'totem-${name.replaceAll(' ', '-').toLowerCase()}-${DateTime.now().microsecondsSinceEpoch}',
         'product': {
           'id': (product?['id'] as num?)?.toInt() ?? 0,
           'name': name,
-          'price': price,
+          'price': basePrice,
           'urlImage': imageUrl,
           if (product?['description'] != null)
             'description': product!['description'],
         },
         'quantity': qty,
-        'selectedToppings': [],
-        'totalPrice': price * qty,
+        'selectedToppings': _buildSelectedToppings(item['toppings']),
+        'totalPrice': unitPrice * qty,
+        'extraQuantities': _buildExtraQuantities(item['extraQuantities']),
       };
     }).toList();
+  }
+
+  /// Firma estable de la configuracion de toppings/extras de un item del
+  /// snapshot de pago (`cartItems`), usada para no fusionar en la misma
+  /// linea dos configuraciones distintas del mismo producto.
+  String _configurationSignature(Map<String, dynamic> item) {
+    final toppings = (item['toppings'] as List?) ?? const [];
+    final toppingIds = toppings
+        .map((t) => (t as Map)['toppingId'])
+        .map((id) => id.toString())
+        .toList()
+      ..sort();
+
+    final extras = (item['extraQuantities'] as Map?) ?? const {};
+    final extraKeys = extras.keys.map((k) => k.toString()).toList()..sort();
+
+    return '${toppingIds.join(',')}|${extraKeys.join(',')}';
+  }
+
+  /// Convierte los toppings elegidos (formato interno de `cartItems`) al
+  /// formato que espera el backend por item de orden.
+  List<Map<String, dynamic>> _buildSelectedToppings(dynamic rawToppings) {
+    if (rawToppings is! List) return const [];
+
+    return rawToppings.whereType<Map>().map((raw) {
+      final subToppings = ((raw['subToppings'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((sub) => {
+                'id': sub['id'],
+                'name': sub['name'],
+                'priority': 0,
+                'price': (sub['price'] as num?)?.toDouble() ?? 0.0,
+              })
+          .toList();
+
+      return {
+        'topping': {
+          'id': raw['toppingId'],
+          'name': raw['toppingName'],
+          'priority': 0,
+          'type': raw['type'],
+          'minLimit': raw['minLimit'],
+          'maxLimit': raw['maxLimit'],
+          'subToppings': subToppings,
+        },
+        'selectedSubToppings': subToppings,
+        'quantity': 1,
+      };
+    }).toList();
+  }
+
+  /// Convierte `extraQuantities` (ya viene con claves de texto desde
+  /// `home_page.dart`) tal cual, tolerando ausencia.
+  Map<String, dynamic> _buildExtraQuantities(dynamic rawExtraQuantities) {
+    if (rawExtraQuantities is! Map) return const {};
+    return Map<String, dynamic>.from(rawExtraQuantities);
   }
 
   Map<String, dynamic>? _findProduct(int? productId, String productName) {
@@ -125,10 +190,8 @@ class PlaceOrderRequestDto {
   }
 
   double _calculateTotal(List<Map<String, dynamic>> items) {
-    return items.fold(
-        0.0,
-        (sum, item) =>
-            sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0));
+    return items.fold(0.0,
+        (sum, item) => sum + ((item['totalPrice'] as num?)?.toDouble() ?? 0.0));
   }
 
   String _merchantName() {

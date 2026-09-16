@@ -191,7 +191,21 @@ Modos válidos: `all`, `blacklist`, `whitelist`. `reset: true` limpia filtros. `
 
 ### Órdenes y QR
 
-`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia, cliente y, opcionalmente, datos de facturación (`nit` y `businessName`). El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `name`, `quantity`, `unitPrice` y `totalPrice`. El agrupamiento prioriza el `id` del producto; si no está disponible, usa el nombre en minúsculas como clave de agrupación.
+`POST /orders/create-pending` recibe carrito, método, lugar de consumo, referencia, cliente y, opcionalmente, datos de facturación (`nit` y `businessName`). El carrito contiene `metadataMerchant`, `items`, `subtotal`, `tax: 0.0` y `total`. Cada ítem del carrito incluye `id`, `product` (id/name/price base/urlImage/description), `quantity`, `selectedToppings`, `extraQuantities` y `totalPrice` (precio base + addons × cantidad). El agrupamiento de líneas repetidas prioriza el `id` del producto (o el nombre en minúsculas como fallback) combinado con una firma de la configuración de toppings/extras, de modo que dos líneas del mismo producto con distinta configuración no se fusionen.
+
+`selectedToppings` es una lista con un elemento por grupo de toppings elegido:
+
+```json
+"selectedToppings": [
+  {
+    "topping": {"id": 100, "name": "Extras", "priority": 0, "type": "checkbox", "minLimit": 0, "maxLimit": 2, "subToppings": [{"id": 200, "name": "Vainilla", "priority": 0, "price": 3.0}]},
+    "selectedSubToppings": [{"id": 200, "name": "Vainilla", "priority": 0, "price": 3.0}],
+    "quantity": 1
+  }
+]
+```
+
+`extraQuantities` (grupos `increment`) usa claves de texto: `{"toppingId": {"subToppingId": cantidad}}`. Ambos campos se arman en `home_page.dart` a partir de las líneas del carrito (`HomeState.cartLines`) y se revalidan en `QrPaymentCubit` contra el catálogo fresco antes de crear la orden.
 
 `POST /payments/qr/generate-payment`:
 

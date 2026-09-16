@@ -1,30 +1,28 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ui/themes/app_colors.dart';
-import '../../domain/entities/product.dart';
+import '../../domain/entities/cart_item.dart';
 
 class FloatingCart extends StatefulWidget {
-  final List<Product> products;
-  final int Function(Product product) quantityFor;
+  final List<CartItem> lines;
   final int totalItems;
   final double totalAmount;
   final int maxItemQuantity;
-  final ValueChanged<Product> onIncrement;
-  final ValueChanged<Product> onDecrement;
-  final ValueChanged<Product> onRemove;
+  final ValueChanged<String> onIncrementLine;
+  final ValueChanged<String> onDecrementLine;
+  final ValueChanged<String> onRemoveLine;
   final VoidCallback onClear;
   final VoidCallback onInteraction;
 
   const FloatingCart({
     super.key,
-    required this.products,
-    required this.quantityFor,
+    required this.lines,
     required this.totalItems,
     required this.totalAmount,
     required this.maxItemQuantity,
-    required this.onIncrement,
-    required this.onDecrement,
-    required this.onRemove,
+    required this.onIncrementLine,
+    required this.onDecrementLine,
+    required this.onRemoveLine,
     required this.onClear,
     required this.onInteraction,
   });
@@ -161,71 +159,77 @@ class _FloatingCartState extends State<FloatingCart> {
           ],
         ),
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.shopping_cart, color: AppColors.accent),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Tu carrito', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
-                TextButton(
-                  onPressed: _requestClear,
-                  child: const Text('VACIAR'),
-                ),
-                IconButton(
-                  onPressed: _closeOverlay,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.shopping_cart, color: AppColors.accent),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Tu carrito',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  TextButton(
+                    onPressed: _requestClear,
+                    child: const Text('VACIAR'),
+                  ),
+                  IconButton(
+                    onPressed: _closeOverlay,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: AppColors.border),
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(12),
-              itemCount: widget.products.length,
-              separatorBuilder: (_, __) => const Divider(color: AppColors.border),
-              itemBuilder: (context, index) {
-                final product = widget.products[index];
-                return _CartItem(
-                  product: product,
-                  quantity: widget.quantityFor(product),
-                  maxQuantity: widget.maxItemQuantity,
-                  onIncrement: () => widget.onIncrement(product),
-                  onDecrement: () => _decrementProduct(product),
-                  onRemove: () => _removeProduct(product),
-                );
-              },
+            const Divider(height: 1, color: AppColors.border),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(12),
+                itemCount: widget.lines.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(color: AppColors.border),
+                itemBuilder: (context, index) {
+                  final line = widget.lines[index];
+                  return _CartLineTile(
+                    line: line,
+                    maxQuantity: widget.maxItemQuantity,
+                    onIncrement: () => widget.onIncrementLine(line.id),
+                    onDecrement: () => _decrementLine(line),
+                    onRemove: () => _removeLine(line),
+                  );
+                },
+              ),
             ),
-          ),
-          const Divider(height: 1, color: AppColors.border),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('${widget.totalItems} unidades', style: const TextStyle(color: AppColors.textSecondary)),
-                Text('${widget.totalAmount.toStringAsFixed(2)} Bs', style: const TextStyle(color: AppColors.warning, fontSize: 22, fontWeight: FontWeight.bold)),
-              ],
+            const Divider(height: 1, color: AppColors.border),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${widget.totalItems} unidades',
+                      style: const TextStyle(color: AppColors.textSecondary)),
+                  Text('${widget.totalAmount.toStringAsFixed(2)} Bs',
+                      style: const TextStyle(
+                          color: AppColors.warning,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
-          ),
           ],
         ),
       ),
     );
   }
 
-  void _decrementProduct(Product product) {
-    final quantity = widget.quantityFor(product);
-    if (quantity <= 0) return;
-
-    final shouldClose = quantity == 1 && widget.totalItems == 1;
-    widget.onDecrement(product);
+  void _decrementLine(CartItem line) {
+    final shouldClose = line.quantity == 1 && widget.totalItems == 1;
+    widget.onDecrementLine(line.id);
 
     // Actualizar primero el carrito evita desmontar el Overlay mientras el
     // IconButton todavia esta procesando el gesto de la ultima unidad.
@@ -239,12 +243,9 @@ class _FloatingCartState extends State<FloatingCart> {
     widget.onClear();
   }
 
-  void _removeProduct(Product product) {
-    final quantity = widget.quantityFor(product);
-    if (quantity <= 0) return;
-
-    final shouldClose = widget.totalItems == quantity;
-    widget.onRemove(product);
+  void _removeLine(CartItem line) {
+    final shouldClose = widget.totalItems == line.quantity;
+    widget.onRemoveLine(line.id);
 
     if (shouldClose) {
       _closeOverlay();
@@ -252,18 +253,43 @@ class _FloatingCartState extends State<FloatingCart> {
   }
 }
 
-class _CartItem extends StatelessWidget {
-  final Product product;
-  final int quantity;
+class _CartLineTile extends StatelessWidget {
+  final CartItem line;
   final int maxQuantity;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
 
-  const _CartItem({required this.product, required this.quantity, required this.maxQuantity, required this.onIncrement, required this.onDecrement, required this.onRemove});
+  const _CartLineTile({
+    required this.line,
+    required this.maxQuantity,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onRemove,
+  });
+
+  /// Resumen legible de la configuracion elegida (subtoppings y extras),
+  /// o cadena vacia si la linea no tiene toppings.
+  String _configurationSummary() {
+    final parts = <String>[];
+    for (final selection in line.selectedToppings) {
+      for (final subTopping in selection.selectedSubToppings) {
+        parts.add(subTopping.name);
+      }
+    }
+    line.extraQuantities.forEach((toppingId, subQuantities) {
+      final topping = line.product.toppingById(toppingId);
+      subQuantities.forEach((subToppingId, qty) {
+        final subTopping = topping?.subToppingById(subToppingId);
+        if (subTopping != null) parts.add('${subTopping.name} x$qty');
+      });
+    });
+    return parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
+    final summary = _configurationSummary();
     return Row(
       children: [
         Expanded(
@@ -271,7 +297,7 @@ class _CartItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                product.name,
+                line.product.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -279,14 +305,26 @@ class _CartItem extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (summary.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
-                '${product.price.toStringAsFixed(2)} Bs c/u · Cantidad: $quantity',
+                '${line.unitPrice.toStringAsFixed(2)} Bs c/u · Cantidad: ${line.quantity}',
                 style: const TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 2),
               Text(
-                'Subtotal: ${(product.price * quantity).toStringAsFixed(2)} Bs',
+                'Subtotal: ${line.totalPrice.toStringAsFixed(2)} Bs',
                 style: const TextStyle(
                   color: AppColors.warning,
                   fontWeight: FontWeight.bold,
@@ -296,18 +334,22 @@ class _CartItem extends StatelessWidget {
           ),
         ),
         IconButton(
-          key: ValueKey(
-            'cart-decrement-${product.merchantId}-${product.id}',
-          ),
+          key: ValueKey('cart-decrement-${line.id}'),
           onPressed: onDecrement,
           icon: const Icon(Icons.remove_circle_outline),
         ),
-        Text('$quantity', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text('${line.quantity}',
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
         IconButton(
-          onPressed: quantity < maxQuantity ? onIncrement : null,
+          onPressed: line.quantity < maxQuantity ? onIncrement : null,
           icon: const Icon(Icons.add_circle_outline),
         ),
-        IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline, color: AppColors.error)),
+        IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.delete_outline, color: AppColors.error)),
       ],
     );
   }

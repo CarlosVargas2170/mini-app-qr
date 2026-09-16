@@ -1,7 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mini_app_qr/domain/entities/cart_item.dart';
 import 'package:mini_app_qr/domain/entities/merchant.dart';
 import 'package:mini_app_qr/domain/entities/product.dart';
 import 'package:mini_app_qr/presentation/bloc/home_state.dart';
+
+CartItem _simpleLine(String id, Product product, int quantity) {
+  return CartItem.configured(
+    id: id,
+    product: product,
+    quantity: quantity,
+    selectedToppings: const [],
+    extraQuantities: const {},
+  );
+}
 
 void main() {
   const coffee = Product(
@@ -25,10 +36,10 @@ void main() {
     test('calcula productos, unidades y total usando las cantidades', () {
       final state = HomeState(
         products: const [coffee, tea],
-        cartQuantities: {
-          HomeState.cartKey(coffee): 2,
-          HomeState.cartKey(tea): 3,
-        },
+        cartLines: [
+          _simpleLine('line-1', coffee, 2),
+          _simpleLine('line-2', tea, 3),
+        ],
       );
 
       expect(state.cartProducts, const [coffee, tea]);
@@ -47,7 +58,7 @@ void main() {
       );
       final state = HomeState(
         products: const [coffee, otherMerchantCoffee],
-        cartQuantities: {HomeState.cartKey(coffee): 1},
+        cartLines: [_simpleLine('line-1', coffee, 1)],
       );
 
       expect(state.quantityFor(coffee), 1);

@@ -3,6 +3,8 @@ import 'package:mini_app_qr/core/config/app_settings.dart';
 import 'package:mini_app_qr/core/config/product_filter_config.dart';
 import 'package:mini_app_qr/domain/entities/merchant.dart';
 import 'package:mini_app_qr/domain/entities/product.dart';
+import 'package:mini_app_qr/domain/entities/selected_topping.dart';
+import 'package:mini_app_qr/domain/entities/topping.dart';
 import 'package:mini_app_qr/domain/repositories/product_repository.dart';
 import 'package:mini_app_qr/domain/usecases/get_merchant_info.dart';
 import 'package:mini_app_qr/domain/usecases/get_products.dart';
@@ -65,7 +67,7 @@ void main() {
       cubit.decrementProduct(coffee);
 
       expect(cubit.state.quantityFor(coffee), 0);
-      expect(cubit.state.cartQuantities, isEmpty);
+      expect(cubit.state.cartLines, isEmpty);
       expect(cubit.state.cartProducts, isEmpty);
     });
 
@@ -75,7 +77,7 @@ void main() {
 
       cubit.clearCart();
 
-      expect(cubit.state.cartQuantities, isEmpty);
+      expect(cubit.state.cartLines, isEmpty);
       expect(cubit.state.cartTotal, 0);
     });
 
@@ -85,7 +87,7 @@ void main() {
       await cubit.showAttract();
 
       expect(cubit.state.displayMode, DisplayMode.attract);
-      expect(cubit.state.cartQuantities, isEmpty);
+      expect(cubit.state.cartLines, isEmpty);
     });
 
     testWidgets('pausa el timeout durante el QR y lo reanuda al volver',
@@ -151,8 +153,81 @@ void main() {
       await cubit.forcePoll();
 
       expect(cubit.state.products, isEmpty);
-      expect(cubit.state.cartQuantities, isEmpty);
+      expect(cubit.state.cartLines, isEmpty);
       expect(cubit.state.currentProduct, isNull);
+    });
+  });
+
+  group('HomeCubit carrito con toppings', () {
+    const toppingGroup = Topping(
+      id: 100,
+      name: 'Extras',
+      minLimit: 0,
+      maxLimit: 2,
+      type: ToppingType.checkbox,
+      subToppings: [SubTopping(id: 200, name: 'Vainilla', price: 3)],
+    );
+    final vanillaSelection = SelectedTopping(
+      topping: toppingGroup,
+      selectedSubToppings: const [
+        SubTopping(id: 200, name: 'Vainilla', price: 3)
+      ],
+    );
+
+    test(
+        'dos configuraciones distintas del mismo producto quedan en lineas separadas',
+        () {
+      cubit.addConfiguredItem(
+        product: coffee,
+        selectedToppings: [vanillaSelection],
+        extraQuantities: const {},
+        quantity: 1,
+      );
+      cubit.addConfiguredItem(
+        product: coffee,
+        selectedToppings: const [],
+        extraQuantities: const {},
+        quantity: 1,
+      );
+
+      expect(cubit.state.cartLines, hasLength(2));
+      expect(cubit.state.cartTotalItems, 2);
+      expect(cubit.state.cartTotal, 13 + 10); // (10+3) + 10
+    });
+
+    test(
+        'la misma configuracion del mismo producto suma cantidad en una sola linea',
+        () {
+      cubit.addConfiguredItem(
+        product: coffee,
+        selectedToppings: [vanillaSelection],
+        extraQuantities: const {},
+        quantity: 1,
+      );
+      cubit.addConfiguredItem(
+        product: coffee,
+        selectedToppings: [vanillaSelection],
+        extraQuantities: const {},
+        quantity: 2,
+      );
+
+      expect(cubit.state.cartLines, hasLength(1));
+      expect(cubit.state.cartLines.single.quantity, 3);
+      expect(cubit.state.cartTotal, 13 * 3);
+    });
+
+    test('el "+/-" simple no afecta lineas configuradas del mismo producto',
+        () {
+      cubit.addConfiguredItem(
+        product: coffee,
+        selectedToppings: [vanillaSelection],
+        extraQuantities: const {},
+        quantity: 1,
+      );
+      cubit.incrementProduct(coffee);
+
+      expect(cubit.state.cartLines, hasLength(2));
+      expect(cubit.state.quantityFor(coffee), 1);
     });
   });
 }
@@ -174,8 +249,8 @@ class _FakeProductRepository implements ProductRepository {
       Merchant(id: merchantId, name: 'Merchant $merchantId');
 
   @override
-  Future<Product> getProduct(int merchantId, int productId) async => products
-      .firstWhere((product) =>
+  Future<Product> getProduct(int merchantId, int productId) async =>
+      products.firstWhere((product) =>
           product.merchantId == merchantId && product.id == productId);
 
   @override

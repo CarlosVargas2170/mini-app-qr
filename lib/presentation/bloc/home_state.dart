@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/merchant.dart';
 import '../../domain/entities/product.dart';
 
@@ -19,7 +20,10 @@ class HomeState extends Equatable {
   final List<String> merchantNames;
   final List<int> merchantIds;
   final Map<int, Merchant> merchantsById;
-  final Map<String, int> cartQuantities;
+
+  /// Lineas del carrito. Un mismo producto puede aparecer en varias lineas
+  /// cuando tiene toppings con distinta configuracion cada una.
+  final List<CartItem> cartLines;
   final String? cartSyncMessage;
   final int cartSyncRevision;
   final String? errorMessage;
@@ -41,7 +45,7 @@ class HomeState extends Equatable {
     this.merchantNames = const [],
     this.merchantIds = const [],
     this.merchantsById = const {},
-    this.cartQuantities = const {},
+    this.cartLines = const [],
     this.cartSyncMessage,
     this.cartSyncRevision = 0,
     this.errorMessage,
@@ -55,17 +59,47 @@ class HomeState extends Equatable {
   static String cartKey(Product product) =>
       '${product.merchantId}_${product.id}';
 
-  int quantityFor(Product product) => cartQuantities[cartKey(product)] ?? 0;
+  /// Linea sin configuracion de toppings de [product], si existe. Un
+  /// producto sin toppings tiene a lo sumo una de estas lineas: es la que
+  /// maneja el "+/-" simple del carrusel.
+  CartItem? _unconfiguredLineFor(Product product) {
+    final key = cartKey(product);
+    for (final line in cartLines) {
+      if (cartKey(line.product) == key && !line.hasCustomConfiguration) {
+        return line;
+      }
+    }
+    return null;
+  }
 
-  List<Product> get cartProducts =>
-      products.where((product) => quantityFor(product) > 0).toList();
+  /// Cantidad de la linea sin configurar de [product]. Para productos con
+  /// toppings, las lineas configuradas no se cuentan aqui: se muestran por
+  /// separado en el carrito.
+  int quantityFor(Product product) =>
+      _unconfiguredLineFor(product)?.quantity ?? 0;
 
-  int get cartTotalItems => cartQuantities.values.fold(0, (a, b) => a + b);
+  /// Todas las lineas (configuradas o no) de [product].
+  List<CartItem> cartLinesFor(Product product) {
+    final key = cartKey(product);
+    return cartLines.where((line) => cartKey(line.product) == key).toList();
+  }
 
-  double get cartTotal => cartProducts.fold(
-        0,
-        (total, product) => total + product.price * quantityFor(product),
-      );
+  /// Productos distintos presentes en el carrito, sin importar cuantas
+  /// lineas/configuraciones tenga cada uno.
+  List<Product> get cartProducts {
+    final seen = <String>{};
+    final result = <Product>[];
+    for (final line in cartLines) {
+      if (seen.add(cartKey(line.product))) result.add(line.product);
+    }
+    return result;
+  }
+
+  int get cartTotalItems =>
+      cartLines.fold(0, (total, line) => total + line.quantity);
+
+  double get cartTotal =>
+      cartLines.fold(0.0, (total, line) => total + line.totalPrice);
 
   /// Obtiene el nombre del merchant para un producto especifico.
   String getMerchantNameForProduct(Product product) {
@@ -91,7 +125,7 @@ class HomeState extends Equatable {
     List<String>? merchantNames,
     List<int>? merchantIds,
     Map<int, Merchant>? merchantsById,
-    Map<String, int>? cartQuantities,
+    List<CartItem>? cartLines,
     String? cartSyncMessage,
     int? cartSyncRevision,
     String? errorMessage,
@@ -107,7 +141,7 @@ class HomeState extends Equatable {
       merchantNames: merchantNames ?? this.merchantNames,
       merchantIds: merchantIds ?? this.merchantIds,
       merchantsById: merchantsById ?? this.merchantsById,
-      cartQuantities: cartQuantities ?? this.cartQuantities,
+      cartLines: cartLines ?? this.cartLines,
       cartSyncMessage: cartSyncMessage ?? this.cartSyncMessage,
       cartSyncRevision: cartSyncRevision ?? this.cartSyncRevision,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -126,7 +160,7 @@ class HomeState extends Equatable {
         merchantNames,
         merchantIds,
         merchantsById,
-        cartQuantities,
+        cartLines,
         cartSyncMessage,
         cartSyncRevision,
         errorMessage,

@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mini_app_qr/domain/entities/cart_item.dart';
 import 'package:mini_app_qr/domain/entities/product.dart';
 import 'package:mini_app_qr/presentation/widgets/floating_cart.dart';
+
+CartItem _lineFor(String id, Product product, int quantity) {
+  return CartItem.configured(
+    id: id,
+    product: product,
+    quantity: quantity,
+    selectedToppings: const [],
+    extraQuantities: const {},
+  );
+}
 
 void main() {
   const product = Product(
@@ -67,7 +78,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cart-button')));
     await tester.pump();
     await tester.tap(
-      find.byKey(const ValueKey('cart-decrement-53-1')),
+      find.byKey(const ValueKey('cart-decrement-line-53-1')),
     );
     await tester.pump();
     await tester.pump();
@@ -105,19 +116,22 @@ class _FloatingCartHarnessState extends State<_FloatingCartHarness> {
 
   @override
   Widget build(BuildContext context) {
+    final lines = quantity > 0
+        ? [_lineFor('line-1', widget.product, quantity)]
+        : const <CartItem>[];
+
     return MaterialApp(
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomRight,
           child: FloatingCart(
-            products: quantity > 0 ? [widget.product] : const [],
-            quantityFor: (_) => quantity,
+            lines: lines,
             totalItems: quantity,
             totalAmount: widget.product.price * quantity,
             maxItemQuantity: 10,
-            onIncrement: (_) => setState(() => quantity++),
-            onDecrement: (_) => setState(() => quantity--),
-            onRemove: (_) => setState(() => quantity = 0),
+            onIncrementLine: (_) => setState(() => quantity++),
+            onDecrementLine: (_) => setState(() => quantity--),
+            onRemoveLine: (_) => setState(() => quantity = 0),
             onClear: () => setState(() => quantity = 0),
             onInteraction: () {},
           ),
@@ -144,31 +158,39 @@ class _MultiProductCartHarnessState extends State<_MultiProductCartHarness> {
 
   int quantityFor(Product product) => quantities[product.id] ?? 0;
 
+  String _lineId(Product product) => 'line-${product.merchantId}-${product.id}';
+
   @override
   Widget build(BuildContext context) {
-    final cartProducts = widget.products
+    final lines = widget.products
         .where((product) => quantityFor(product) > 0)
+        .map((product) =>
+            _lineFor(_lineId(product), product, quantityFor(product)))
         .toList();
     final totalItems = quantities.values.fold(0, (sum, value) => sum + value);
-    final totalAmount = cartProducts.fold<double>(
+    final totalAmount = lines.fold<double>(
       0,
-      (sum, product) => sum + product.price * quantityFor(product),
+      (sum, line) => sum + line.totalPrice,
     );
+
+    Product productForLineId(String lineId) =>
+        lines.firstWhere((line) => line.id == lineId).product;
 
     return MaterialApp(
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomRight,
           child: FloatingCart(
-            products: cartProducts,
-            quantityFor: quantityFor,
+            lines: lines,
             totalItems: totalItems,
             totalAmount: totalAmount,
             maxItemQuantity: 10,
-            onIncrement: (product) => setState(
-              () => quantities[product.id] = quantityFor(product) + 1,
-            ),
-            onDecrement: (product) => setState(() {
+            onIncrementLine: (lineId) => setState(() {
+              final product = productForLineId(lineId);
+              quantities[product.id] = quantityFor(product) + 1;
+            }),
+            onDecrementLine: (lineId) => setState(() {
+              final product = productForLineId(lineId);
               final nextQuantity = quantityFor(product) - 1;
               if (nextQuantity <= 0) {
                 quantities.remove(product.id);
@@ -176,8 +198,8 @@ class _MultiProductCartHarnessState extends State<_MultiProductCartHarness> {
                 quantities[product.id] = nextQuantity;
               }
             }),
-            onRemove: (product) => setState(
-              () => quantities.remove(product.id),
+            onRemoveLine: (lineId) => setState(
+              () => quantities.remove(productForLineId(lineId).id),
             ),
             onClear: () => setState(quantities.clear),
             onInteraction: () {},

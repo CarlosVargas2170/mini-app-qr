@@ -6,6 +6,7 @@ import '../../core/config/app_settings.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/services/ui_command_bus.dart';
 import '../../core/ui/themes/app_colors.dart';
+import '../../data/mappers/cart_line_json_mapper.dart';
 import '../bloc/home_cubit.dart';
 import '../bloc/home_state.dart';
 import '../bloc/qr_payment_cubit.dart';
@@ -16,6 +17,7 @@ import '../widgets/billing_dialogs.dart';
 import '../widgets/floating_cart.dart';
 import '../widgets/product_carousel.dart';
 import '../widgets/product_quantity_selector.dart';
+import '../widgets/product_toppings_modal.dart';
 import 'qr_payment_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -233,39 +235,39 @@ class _HomeViewState extends State<_HomeView> {
         SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: MediaQuery.of(context).size.height -
-              MediaQuery.of(context).padding.top -
-              MediaQuery.of(context).padding.bottom,
-        ),
-        child: IntrinsicHeight(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 8),
-              Expanded(
-                flex: isTall ? 3 : 2,
-                child: ProductCarousel(
-                  products: state.products,
-                  currentIndex: state.currentIndex,
-                ),
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom,
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  Expanded(
+                    flex: isTall ? 3 : 2,
+                    child: ProductCarousel(
+                      products: state.products,
+                      currentIndex: state.currentIndex,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildProductInfo(product),
+                  const SizedBox(height: 12),
+                  _buildQuantitySelector(context, state),
+                  const SizedBox(height: 24),
+                  _buildPayButton(context, state),
+                  const SizedBox(height: 96),
+                ],
               ),
-              const SizedBox(height: 16),
-              _buildProductInfo(product),
-              const SizedBox(height: 12),
-              _buildQuantitySelector(context, state),
-              const SizedBox(height: 24),
-              _buildPayButton(context, state),
-              const SizedBox(height: 96),
-            ],
-          ),
             ),
           ),
         ),
         Positioned(
           right: 0,
           bottom: 0,
-          child: _buildFloatingCart(context, state),
+          child: _buildFloatingActions(context, state),
         ),
       ],
     );
@@ -303,34 +305,35 @@ class _HomeViewState extends State<_HomeView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                    const SizedBox(height: 56),
-                    const Icon(Icons.coffee, color: AppColors.accent, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      '¿Quieres un ${product.name}?',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${product.price} Bs',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.warning,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Divider(color: AppColors.border, height: 40),
-                    const SizedBox(height: 12),
-                    _buildQuantitySelector(context, state),
-                    const SizedBox(height: 24),
-                    _buildPayButton(context, state),
-                    const SizedBox(height: 68),
+                        const SizedBox(height: 56),
+                        const Icon(Icons.coffee,
+                            color: AppColors.accent, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          '¿Quieres un ${product.name}?',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${product.price} Bs',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.warning,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Divider(color: AppColors.border, height: 40),
+                        const SizedBox(height: 12),
+                        _buildQuantitySelector(context, state),
+                        const SizedBox(height: 24),
+                        _buildPayButton(context, state),
+                        const SizedBox(height: 68),
                       ],
                     ),
                     const Positioned(
@@ -347,7 +350,7 @@ class _HomeViewState extends State<_HomeView> {
                     Positioned(
                       right: -20,
                       bottom: -8,
-                      child: _buildFloatingCart(context, state),
+                      child: _buildFloatingActions(context, state),
                     ),
                   ],
                 ),
@@ -359,8 +362,14 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
+  /// Selector de cantidad simple para productos sin toppings. Un producto
+  /// con toppings no puede agregarse directamente con "+/-": no muestra
+  /// nada aqui, y se agrega exclusivamente mediante el boton de
+  /// personalizar junto al carrito ([_buildFloatingActions]).
   Widget _buildQuantitySelector(BuildContext context, HomeState state) {
     final product = state.currentProduct!;
+    if (product.hasToppings) return const SizedBox.shrink();
+
     final cubit = context.read<HomeCubit>();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -373,19 +382,51 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
-  Widget _buildFloatingCart(BuildContext context, HomeState state) {
+  /// Botones flotantes de la esquina: personalizar (solo si el producto
+  /// actual tiene toppings) y el carrito. Ambos usan el mismo mecanismo de
+  /// popup anclado y acotado en tamano (ver `ProductToppingsButton` y
+  /// `FloatingCart`), para no invadir la zona de pantalla no tactil del
+  /// totem.
+  Widget _buildFloatingActions(BuildContext context, HomeState state) {
     final cubit = context.read<HomeCubit>();
-    return FloatingCart(
-      products: state.cartProducts,
-      quantityFor: state.quantityFor,
-      totalItems: state.cartTotalItems,
-      totalAmount: state.cartTotal,
-      maxItemQuantity: AppSettings().maxCartItemQuantity,
-      onIncrement: cubit.incrementProduct,
-      onDecrement: cubit.decrementProduct,
-      onRemove: cubit.removeProductFromCart,
-      onClear: () => _confirmClearCart(context),
-      onInteraction: cubit.registerCartInteraction,
+    final product = state.currentProduct;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (product != null && product.hasToppings)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20, left: 20),
+            child: ProductToppingsButton(
+              product: product,
+              onInteraction: cubit.registerCartInteraction,
+              onConfirm: ({
+                required selectedToppings,
+                required extraQuantities,
+                required quantity,
+              }) {
+                cubit.addConfiguredItem(
+                  product: product,
+                  selectedToppings: selectedToppings,
+                  extraQuantities: extraQuantities,
+                  quantity: quantity,
+                );
+              },
+            ),
+          ),
+        FloatingCart(
+          lines: state.cartLines,
+          totalItems: state.cartTotalItems,
+          totalAmount: state.cartTotal,
+          maxItemQuantity: AppSettings().maxCartItemQuantity,
+          onIncrementLine: cubit.incrementCartLine,
+          onDecrementLine: cubit.decrementCartLine,
+          onRemoveLine: cubit.removeCartLine,
+          onClear: () => _confirmClearCart(context),
+          onInteraction: cubit.registerCartInteraction,
+        ),
+      ],
     );
   }
 
@@ -499,41 +540,42 @@ class _HomeViewState extends State<_HomeView> {
       builder: (dialogContext) {
         _clearCartDialogContext = dialogContext;
         return AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        contentPadding: const EdgeInsets.fromLTRB(32, 20, 32, 24),
-        actionsPadding: const EdgeInsets.fromLTRB(32, 0, 32, 28),
-        backgroundColor: AppColors.surface,
-        titlePadding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
-        title: const Text(
-          '¿Vaciar el carrito?',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        ),
-        content: const SizedBox(
-          width: 480,
-          child: Text(
-            'Se eliminarán todos los productos seleccionados.',
-            style: TextStyle(fontSize: 18),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          contentPadding: const EdgeInsets.fromLTRB(32, 20, 32, 24),
+          actionsPadding: const EdgeInsets.fromLTRB(32, 0, 32, 28),
+          backgroundColor: AppColors.surface,
+          titlePadding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+          title: const Text(
+            '¿Vaciar el carrito?',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
-        ),
-        actions: [
-          SizedBox(
-            width: 160,
-            height: 58,
-            child: OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('CANCELAR', style: TextStyle(fontSize: 17)),
+          content: const SizedBox(
+            width: 480,
+            child: Text(
+              'Se eliminarán todos los productos seleccionados.',
+              style: TextStyle(fontSize: 18),
             ),
           ),
-          SizedBox(
-            width: 160,
-            height: 58,
-            child: FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-              child: const Text('VACIAR', style: TextStyle(fontSize: 17)),
+          actions: [
+            SizedBox(
+              width: 160,
+              height: 58,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('CANCELAR', style: TextStyle(fontSize: 17)),
+              ),
             ),
-          ),
-        ],
+            SizedBox(
+              width: 160,
+              height: 58,
+              child: FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                child: const Text('VACIAR', style: TextStyle(fontSize: 17)),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -554,7 +596,7 @@ class _HomeViewState extends State<_HomeView> {
 
   Future<void> _goToPayment(BuildContext context, HomeState state) async {
     if (_isPreparingPayment || _activePaymentCubit != null) return;
-    if (state.cartProducts.isEmpty) return;
+    if (state.cartLines.isEmpty) return;
 
     _isPreparingPayment = true;
     final homeCubit = context.read<HomeCubit>();
@@ -573,20 +615,20 @@ class _HomeViewState extends State<_HomeView> {
       _isPreparingPayment = false;
       return;
     }
-    if (cartWasAdjusted || refreshedState.cartProducts.isEmpty) {
+    if (cartWasAdjusted || refreshedState.cartLines.isEmpty) {
       _isPreparingPayment = false;
       homeCubit.resumeCustomerSessionTimeout();
       _showCartSyncNoticeIfNeeded(this.context, refreshedState);
       return;
     }
 
-    final products = List.of(refreshedState.cartProducts);
-    final firstProduct = products.first;
+    final lines = List.of(refreshedState.cartLines);
+    final firstProduct = lines.first.product;
 
-    final billingDetails = refreshedState
-            .merchantUsesBilling(firstProduct.merchantId)
-        ? await _collectBillingDetails()
-        : const BillingFlowResult.withoutInvoice();
+    final billingDetails =
+        refreshedState.merchantUsesBilling(firstProduct.merchantId)
+            ? await _collectBillingDetails()
+            : const BillingFlowResult.withoutInvoice();
     if (!mounted) return;
     if (billingDetails == null) {
       _isPreparingPayment = false;
@@ -594,29 +636,41 @@ class _HomeViewState extends State<_HomeView> {
       return;
     }
 
-    // Snapshot del carrito: orden y QR salen de la misma seleccion.
-    final cartItems = products
-        .map<Map<String, dynamic>>((product) => {
-              'id': product.id,
-              'name': product.name,
-              'quantity': refreshedState.quantityFor(product),
-              'price': product.price,
+    // Snapshot del carrito: orden y QR salen de la misma seleccion. Cada
+    // linea de carrito se convierte en un item; dos lineas del mismo
+    // producto con distinta configuracion de toppings quedan como items
+    // separados (se distinguen por 'toppings'/'extraQuantities').
+    final cartItems = lines
+        .map<Map<String, dynamic>>((line) => {
+              'id': line.product.id,
+              'name': line.product.name,
+              'quantity': line.quantity,
+              'price': line.product.price,
+              'toppings': toppingsToJson(line.selectedToppings),
+              'extraQuantities': extraQuantitiesToJson(line.extraQuantities),
             })
         .toList(growable: false);
-    final menuProducts = products
-        .map<Map<String, dynamic>>((product) => {
-              'id': product.id,
-              'name': product.name,
-              'price': product.price,
-              'urlImage': product.urlImage,
-              'description': product.description,
-            })
-        .toList(growable: false);
-    final amount = products.fold<double>(
-      0,
-      (total, product) =>
-          total + product.price * refreshedState.quantityFor(product),
-    );
+
+    // menuData conserva un producto por id (sin duplicar por variante) para
+    // que QrPaymentCubit pueda resolver nombre/id cuando el item no trae
+    // uno explicito.
+    final menuProductsById = <int, Map<String, dynamic>>{};
+    for (final line in lines) {
+      menuProductsById.putIfAbsent(
+        line.product.id,
+        () => {
+          'id': line.product.id,
+          'name': line.product.name,
+          'price': line.product.price,
+          'urlImage': line.product.urlImage,
+          'description': line.product.description,
+        },
+      );
+    }
+    final menuProducts = menuProductsById.values.toList(growable: false);
+
+    final amount =
+        lines.fold<double>(0, (total, line) => total + line.totalPrice);
 
     _activePaymentCubit?.close();
     final cubit = sl.qrPaymentCubit();

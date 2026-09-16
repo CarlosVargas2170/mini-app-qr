@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/product.dart' as domain;
 import '../../domain/entities/merchant.dart' as domain;
+import '../mappers/topping_mapper.dart';
 import 'product_data_source.dart';
 
 /// DataSource para el endpoint legacy (patio_service).
@@ -83,6 +84,7 @@ class LegacyProductDataSource implements ProductDataSource {
           ? double.tryParse(json['oldPrice'].toString())
           : null,
       urlImage: json['urlImage'] ?? '',
+      toppings: mapLegacyToppings(json['toppings'] as List<dynamic>?),
     );
   }
 }

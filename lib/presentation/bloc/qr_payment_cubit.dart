@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../data/mappers/cart_line_json_mapper.dart';
+import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/order_status.dart';
 import '../../domain/usecases/complete_order.dart';
@@ -88,8 +90,7 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         final resolvedProductId = _resolveProductId(
           item: item,
           menuData: validatedMenuData,
-          fallbackProductId:
-              validatedCartItems.length == 1 ? productId : null,
+          fallbackProductId: validatedCartItems.length == 1 ? productId : null,
         );
 
         if (quantity <= 0 || resolvedProductId == null) {
@@ -102,19 +103,43 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
 
         try {
           final freshProduct = await _getProduct(merchantId, resolvedProductId);
+
+          // Resolver toppings/extras contra el catalogo fresco: si algun
+          // grupo o sub-topping seleccionado ya no existe, el item se
+          // considera invalido (no se confia en el precio capturado al
+          // armar el pedido).
+          final resolvedToppings = resolveSelectedToppingsAgainstProduct(
+              item['toppings'], freshProduct);
+          final resolvedExtras = resolveExtraQuantitiesAgainstProduct(
+              item['extraQuantities'], freshProduct);
+
+          if (!resolvedToppings.isValid || !resolvedExtras.isValid) {
+            emit(state.copyWith(
+              status: QrPaymentStatus.failed,
+              errorMessage:
+                  'La configuración de "$itemName" cambió.\nVuelve al carrito para revisar tu pedido.',
+            ));
+            return;
+          }
+
+          final freshUnitPrice = CartItem.unitPriceFor(
+            product: freshProduct,
+            selectedToppings: resolvedToppings.selectedToppings,
+            extraQuantities: resolvedExtras.extraQuantities,
+          );
           final previousPrice = (item['price'] as num?)?.toDouble();
           debugPrint(
             '[QrPaymentCubit] Producto validado: "${freshProduct.name}" '
-            'cantidad=$quantity precio API=${freshProduct.price} '
+            'cantidad=$quantity precio unitario fresco=$freshUnitPrice '
             'precio local=$previousPrice',
           );
 
           item
             ..['id'] = freshProduct.id
             ..['name'] = freshProduct.name
-            ..['price'] = freshProduct.price;
+            ..['price'] = freshUnitPrice;
           _updateMenuProduct(validatedMenuData, freshProduct);
-          validatedAmount += freshProduct.price * quantity;
+          validatedAmount += freshUnitPrice * quantity;
         } catch (e) {
           debugPrint(
             '[QrPaymentCubit] Producto $resolvedProductId no disponible: $e',

@@ -203,17 +203,42 @@ Esta normalización permite que `ProductRepositoryImpl`, los casos de uso y los 
 
 ---
 
+## 6.5 Toppings (modificadores de producto)
+
+`Product.toppings` es una lista opcional de `Topping` (grupo de opciones: `id`, `name`, `minLimit`, `maxLimit`, `type`, `subToppings`). `Product.hasToppings` decide si el selector de personalización aparece para ese producto; un producto sin toppings configurados en el backend simplemente no muestra la opción, sin distinción visible entre proveedores.
+
+`ToppingType` tiene tres valores (`checkbox`, `radio`, `increment`), con nombres iguales al string que envían ambos proveedores.
+
+**Legacy** entrega el `type` de cada grupo ya resuelto dentro del mismo JSON de `products-categories` (campo `toppings` por producto). `LegacyProductDataSource` lo mapea directamente con `mapLegacyToppings()` (`lib/data/mappers/topping_mapper.dart`), sin necesidad de inferencia.
+
+**Ecosystem** entrega `toppingGroups` por item del menú, sin el tipo resuelto. `MenuItemDto.toToppings()` (vía `ToppingGroupDto.toTopping()`) infiere el tipo:
+
+- `groupType == 'extra'` → `increment` (permite repetir la misma opción, ej. "extra queso x3").
+- `maxAllowed == 1` → `radio`.
+- cualquier otro caso → `checkbox`.
+
+En ambos proveedores se descartan grupos ocultos (`isHidden`) y grupos que se quedan sin sub-toppings visibles tras filtrar.
+
+El carrito ya no es un mapa `producto → cantidad`: `HomeState.cartLines` es una lista de `CartItem` (producto + toppings elegidos + cantidad + precio), lo que permite que el mismo producto aparezca en varias líneas con configuraciones distintas. `CartItem.unitPriceFor()` calcula el precio de una unidad como precio base + subtoppings elegidos (`checkbox`/`radio`, cuentan una vez) + subtoppings de grupos `increment` (cuentan por la cantidad elegida, buscando su precio en `product.toppings` porque `extraQuantities` solo guarda ids y cantidades).
+
+La configuración de un producto con toppings se arma en una mini ventana anclada (`ProductToppingsButton` + `ProductConfigCubit`, en `lib/presentation/widgets/product_toppings_modal.dart` y `lib/presentation/bloc/`), no en un `showModalBottomSheet` a pantalla completa: usa el mismo mecanismo que `FloatingCart` (`LayerLink` + `CompositedTransformFollower` + `OverlayEntry`) para quedar acotada a un tamaño fijo cerca del botón que la abre (junto al carrito), en vez de invadir la parte de la pantalla que en el hardware del tótem no es visible/táctil por debajo de la card del producto. Esa mini ventana replica la validación por grupo: `radio` exige una selección si `minLimit > 0`; `checkbox` exige al menos `minLimit` opciones (el máximo se previene en la UI); `increment` exige que la suma de cantidades elegidas esté entre `minLimit` y `maxLimit`. `HomeCubit.addConfiguredItem()` fusiona la nueva línea con una existente del mismo producto solo si la configuración es idéntica (`CartItem.configurationSignature`); si no, crea una línea nueva.
+
+Un producto con toppings no admite el "+/-" simple del carrusel (`_buildQuantitySelector` no muestra nada en ese caso): agregarlo siempre pasa por el botón de personalizar junto al carrito, para no crear una línea sin configurar cuando el producto exige elegir algo.
+
+---
+
 ## 7. Polling de productos y reconciliación del carrito
 
 No existe un timer periódico permanente para productos. El polling es bajo demanda al entrar al catálogo y solo ocurre cuando transcurrieron al menos `PRODUCT_POLLING_STALE_SECONDS`. Un valor menor o igual a cero lo deshabilita.
 
 También puede forzarse sin considerar el umbral. La comparación considera longitud, orden, ID, merchant, nombre, precio, precio anterior, descripción e imagen. Sin cambios solo actualiza el timestamp interno; con cambios reemplaza estado y caché, conserva el producto activo por ID y mantiene el modo visual. Un error conserva silenciosamente el catálogo anterior.
 
-Durante el polling, `HomeCubit` reconcilia el carrito con el catálogo fresco mediante `_reconcileCart()`:
+Durante el polling, `HomeCubit` reconcilia el carrito con el catálogo fresco mediante `_reconcileCart()`, ahora operando sobre líneas (`CartItem`) en vez de un mapa de cantidades:
 
-- Si un producto del carrito desaparece del catálogo, se elimina del carrito y se genera un mensaje de aviso.
-- Si un producto conservado cambió de precio, se mantiene la cantidad pero se genera un mensaje indicando que el precio fue actualizado.
-- Las cantidades se conservan para los productos que siguen disponibles sin cambios de precio.
+- Si el producto base de una línea desaparece del catálogo, la línea completa se elimina y se genera un mensaje de aviso.
+- Si el producto sigue existiendo, se recalcula el precio de la línea con el precio base fresco y, para cada topping/sub-topping seleccionado, con su precio fresco (si el id ya no existe en `freshProduct.toppings`, ese sub-topping o grupo se quita de la línea en silencio). Un cambio de precio resultante genera el mismo aviso que hoy existe para productos sin toppings.
+- No se re-valida `minLimit`/`maxLimit` durante el polling (mismo alcance que ya tenía la reconciliación antes de esta funcionalidad: solo existencia y precio).
+- Las cantidades se conservan para las líneas que siguen siendo válidas.
 
 Los mensajes de sincronización se exponen en `HomeState.cartSyncMessage` y se muestran al usuario mediante un `SnackBar` cuando está en modo `product`. La revisión del mensaje (`cartSyncRevision`) permite distinguir avisos nuevos de los ya mostrados.
 

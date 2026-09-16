@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
 import '../../core/services/product_cache.dart';
+import '../../domain/entities/cart_item.dart';
 import '../../domain/entities/merchant.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/selected_topping.dart';
+import '../../domain/entities/topping.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/get_products.dart';
 import 'home_state.dart';
@@ -19,6 +22,10 @@ class HomeCubit extends Cubit<HomeState> {
   /// Timestamp del último poll exitoso.
   /// Se usa para evitar polls demasiado frecuentes (umbral configurable).
   DateTime? _lastPollTimestamp;
+
+  /// Contador para generar ids de linea de carrito unicos dentro de la
+  /// sesion (se combina con un timestamp para evitar colisiones).
+  int _lineIdCounter = 0;
 
   /// Tiempo de inactividad antes de volver a [DisplayMode.attract].
   Duration get _inactivityTimeout => Duration(
@@ -34,44 +41,158 @@ class HomeCubit extends Cubit<HomeState> {
     load();
   }
 
-  void incrementProduct(Product product) {
-    final quantities = Map<String, int>.from(state.cartQuantities);
+  String _newLineId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${_lineIdCounter++}';
+
+  // ─── Carrito: productos sin configuracion (flujo "+/-" simple) ────────────
+
+  /// Indice de la linea sin toppings de [product] dentro de [lines], o -1
+  /// si no esta en el carrito.
+  int _unconfiguredLineIndex(List<CartItem> lines, Product product) {
     final key = HomeState.cartKey(product);
-    final currentQuantity = quantities[key] ?? 0;
-    if (currentQuantity >= AppSettings().maxCartItemQuantity) {
-      registerCartInteraction();
-      return;
+    return lines.indexWhere((line) =>
+        HomeState.cartKey(line.product) == key && !line.hasCustomConfiguration);
+  }
+
+  void incrementProduct(Product product) {
+    final lines = List<CartItem>.from(state.cartLines);
+    final index = _unconfiguredLineIndex(lines, product);
+
+    if (index >= 0) {
+      final current = lines[index];
+      if (current.quantity >= AppSettings().maxCartItemQuantity) {
+        registerCartInteraction();
+        return;
+      }
+      final nextQuantity = current.quantity + 1;
+      lines[index] = current.copyWith(
+        quantity: nextQuantity,
+        totalPrice: current.unitPrice * nextQuantity,
+      );
+    } else {
+      lines.add(CartItem.configured(
+        id: _newLineId(),
+        product: product,
+        quantity: 1,
+        selectedToppings: const [],
+        extraQuantities: const {},
+      ));
     }
-    quantities[key] = currentQuantity + 1;
-    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
     registerCartInteraction();
   }
 
   void decrementProduct(Product product) {
-    final quantities = Map<String, int>.from(state.cartQuantities);
-    final key = HomeState.cartKey(product);
-    final currentQuantity = quantities[key] ?? 0;
-    if (currentQuantity <= 0) return;
-    final nextQuantity = currentQuantity - 1;
+    final lines = List<CartItem>.from(state.cartLines);
+    final index = _unconfiguredLineIndex(lines, product);
+    if (index < 0) return;
+
+    final current = lines[index];
+    final nextQuantity = current.quantity - 1;
     if (nextQuantity <= 0) {
-      quantities.remove(key);
+      lines.removeAt(index);
     } else {
-      quantities[key] = nextQuantity;
+      lines[index] = current.copyWith(
+        quantity: nextQuantity,
+        totalPrice: current.unitPrice * nextQuantity,
+      );
     }
-    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
     registerCartInteraction();
   }
 
-  void removeProductFromCart(Product product) {
-    final quantities = Map<String, int>.from(state.cartQuantities)
-      ..remove(HomeState.cartKey(product));
-    emit(state.copyWith(cartQuantities: Map.unmodifiable(quantities)));
+  // ─── Carrito: productos con toppings (flujo del modal de configuracion) ───
+
+  /// Agrega una linea configurada al carrito. Si ya existe una linea del
+  /// mismo producto con exactamente la misma configuracion (mismos
+  /// toppings/extras elegidos), suma la cantidad a esa linea en vez de
+  /// crear una nueva.
+  void addConfiguredItem({
+    required Product product,
+    required List<SelectedTopping> selectedToppings,
+    required Map<int, Map<int, int>> extraQuantities,
+    required int quantity,
+  }) {
+    if (quantity <= 0) return;
+
+    final newLine = CartItem.configured(
+      id: _newLineId(),
+      product: product,
+      quantity: quantity,
+      selectedToppings: selectedToppings,
+      extraQuantities: extraQuantities,
+    );
+
+    final lines = List<CartItem>.from(state.cartLines);
+    final matchIndex = lines.indexWhere((line) =>
+        HomeState.cartKey(line.product) == HomeState.cartKey(product) &&
+        line.configurationSignature == newLine.configurationSignature);
+
+    if (matchIndex >= 0) {
+      final existing = lines[matchIndex];
+      final mergedQuantity = existing.quantity + quantity;
+      lines[matchIndex] = existing.copyWith(
+        quantity: mergedQuantity,
+        totalPrice: existing.unitPrice * mergedQuantity,
+      );
+    } else {
+      lines.add(newLine);
+    }
+
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
+    registerCartInteraction();
+  }
+
+  void incrementCartLine(String lineId) {
+    final lines = List<CartItem>.from(state.cartLines);
+    final index = lines.indexWhere((line) => line.id == lineId);
+    if (index < 0) return;
+
+    final current = lines[index];
+    if (current.quantity >= AppSettings().maxCartItemQuantity) {
+      registerCartInteraction();
+      return;
+    }
+    final nextQuantity = current.quantity + 1;
+    lines[index] = current.copyWith(
+      quantity: nextQuantity,
+      totalPrice: current.unitPrice * nextQuantity,
+    );
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
+    registerCartInteraction();
+  }
+
+  void decrementCartLine(String lineId) {
+    final lines = List<CartItem>.from(state.cartLines);
+    final index = lines.indexWhere((line) => line.id == lineId);
+    if (index < 0) return;
+
+    final current = lines[index];
+    final nextQuantity = current.quantity - 1;
+    if (nextQuantity <= 0) {
+      lines.removeAt(index);
+    } else {
+      lines[index] = current.copyWith(
+        quantity: nextQuantity,
+        totalPrice: current.unitPrice * nextQuantity,
+      );
+    }
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
+    registerCartInteraction();
+  }
+
+  void removeCartLine(String lineId) {
+    final lines = List<CartItem>.from(state.cartLines)
+      ..removeWhere((line) => line.id == lineId);
+    emit(state.copyWith(cartLines: List.unmodifiable(lines)));
     registerCartInteraction();
   }
 
   void clearCart() {
-    if (state.cartQuantities.isEmpty) return;
-    emit(state.copyWith(cartQuantities: const {}));
+    if (state.cartLines.isEmpty) return;
+    emit(state.copyWith(cartLines: const []));
     registerCartInteraction();
   }
 
@@ -124,7 +245,7 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.copyWith(
         status: HomeStatus.loaded,
         displayMode: DisplayMode.attract,
-        cartQuantities: const {},
+        cartLines: const [],
         products: filteredProducts,
         currentIndex: 0,
         merchantName: result.merchantName,
@@ -314,11 +435,10 @@ class HomeCubit extends Cubit<HomeState> {
 
       // Comparar con los productos actuales para detectar cambios
       final currentProducts = state.products;
-      final cartSync = _reconcileCart(currentProducts, freshProducts);
+      final cartSync = _reconcileCart(freshProducts);
       final productsChanged =
           !_listsAreIdentical(currentProducts, freshProducts);
-      final cartChanged =
-          !_cartMapsAreEqual(state.cartQuantities, cartSync.quantities);
+      final cartChanged = !_cartLinesAreEqual(state.cartLines, cartSync.lines);
       if (!productsChanged && !cartChanged) {
         // Sin cambios: actualizar timestamp pero no emitir estado
         debugPrint('[HomeCubit] [OK] Polling: sin cambios detectados');
@@ -368,7 +488,7 @@ class HomeCubit extends Cubit<HomeState> {
         status: HomeStatus.loaded,
         products: freshProducts,
         currentIndex: newIndex,
-        cartQuantities: Map.unmodifiable(cartSync.quantities),
+        cartLines: List.unmodifiable(cartSync.lines),
         cartSyncMessage: cartSync.message,
         cartSyncRevision: cartSync.message == null
             ? state.cartSyncRevision
@@ -390,39 +510,51 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  /// Compara dos listas de productos para determinar si son idénticas.
+  /// Reconcilia las lineas del carrito contra el catalogo fresco.
   ///
-  /// Compara: orden, IDs, y campos relevantes (nombre, precio, oldPrice,
-  /// descripción, urlImage, merchantId).
-  _CartSyncResult _reconcileCart(
-    List<Product> currentProducts,
-    List<Product> freshProducts,
-  ) {
-    final currentByKey = {
-      for (final product in currentProducts)
-        HomeState.cartKey(product): product,
-    };
+  /// - Si el producto base de una linea ya no existe, la linea se elimina.
+  /// - Si el producto sigue existiendo, se recalcula el precio con los
+  ///   datos frescos (precio base + subtoppings), y se quitan del
+  ///   selection los subtoppings/grupos que ya no existan. No se
+  ///   re-valida min/max: el mismo alcance que ya tenia la reconciliacion
+  ///   de precio antes de esta funcionalidad.
+  _CartSyncResult _reconcileCart(List<Product> freshProducts) {
     final freshByKey = {
       for (final product in freshProducts) HomeState.cartKey(product): product,
     };
-    final quantities = <String, int>{};
+
+    final keptLines = <CartItem>[];
     final removedNames = <String>[];
     final priceChangedNames = <String>[];
 
-    for (final entry in state.cartQuantities.entries) {
-      if (entry.value <= 0) continue;
-      final freshProduct = freshByKey[entry.key];
+    for (final line in state.cartLines) {
+      final freshProduct = freshByKey[HomeState.cartKey(line.product)];
       if (freshProduct == null) {
-        removedNames.add(currentByKey[entry.key]?.name ?? 'Un producto');
+        removedNames.add(line.product.name);
         continue;
       }
 
-      quantities[entry.key] = entry.value;
-      final previousProduct = currentByKey[entry.key];
-      if (previousProduct != null &&
-          previousProduct.price != freshProduct.price) {
+      final prunedToppings =
+          _pruneSelectedToppings(line.selectedToppings, freshProduct);
+      final prunedExtras =
+          _pruneExtraQuantities(line.extraQuantities, freshProduct);
+      final freshUnitPrice = CartItem.unitPriceFor(
+        product: freshProduct,
+        selectedToppings: prunedToppings,
+        extraQuantities: prunedExtras,
+      );
+
+      if (freshUnitPrice != line.unitPrice) {
         priceChangedNames.add(freshProduct.name);
       }
+
+      keptLines.add(line.copyWith(
+        product: freshProduct,
+        selectedToppings: prunedToppings,
+        extraQuantities: prunedExtras,
+        unitPrice: freshUnitPrice,
+        totalPrice: freshUnitPrice * line.quantity,
+      ));
     }
 
     final messages = <String>[];
@@ -440,15 +572,69 @@ class HomeCubit extends Cubit<HomeState> {
     }
 
     return _CartSyncResult(
-      quantities: quantities,
+      lines: keptLines,
       message: messages.isEmpty ? null : messages.join(' '),
     );
   }
 
-  bool _cartMapsAreEqual(Map<String, int> a, Map<String, int> b) {
+  /// Quita de [selected] los grupos y subtoppings que ya no existan en
+  /// [freshProduct], y actualiza cada [Topping]/[SubTopping] restante a su
+  /// version fresca (por si cambio de precio).
+  List<SelectedTopping> _pruneSelectedToppings(
+    List<SelectedTopping> selected,
+    Product freshProduct,
+  ) {
+    final result = <SelectedTopping>[];
+    for (final selection in selected) {
+      final freshTopping = freshProduct.toppingById(selection.topping.id);
+      if (freshTopping == null) continue;
+
+      final freshSubToppings = selection.selectedSubToppings
+          .map((sub) => freshTopping.subToppingById(sub.id))
+          .whereType<SubTopping>()
+          .toList();
+      if (freshSubToppings.isEmpty) continue;
+
+      result.add(SelectedTopping(
+        topping: freshTopping,
+        selectedSubToppings: freshSubToppings,
+      ));
+    }
+    return result;
+  }
+
+  /// Igual que [_pruneSelectedToppings] pero para el mapa de cantidades de
+  /// grupos `increment`.
+  Map<int, Map<int, int>> _pruneExtraQuantities(
+    Map<int, Map<int, int>> extraQuantities,
+    Product freshProduct,
+  ) {
+    final result = <int, Map<int, int>>{};
+    extraQuantities.forEach((toppingId, subQuantities) {
+      final freshTopping = freshProduct.toppingById(toppingId);
+      if (freshTopping == null) return;
+
+      final prunedSub = <int, int>{};
+      subQuantities.forEach((subToppingId, qty) {
+        if (freshTopping.subToppingById(subToppingId) != null) {
+          prunedSub[subToppingId] = qty;
+        }
+      });
+      if (prunedSub.isNotEmpty) result[toppingId] = prunedSub;
+    });
+    return result;
+  }
+
+  bool _cartLinesAreEqual(List<CartItem> a, List<CartItem> b) {
     if (a.length != b.length) return false;
-    for (final entry in a.entries) {
-      if (b[entry.key] != entry.value) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+      if (a[i].quantity != b[i].quantity) return false;
+      if (a[i].totalPrice != b[i].totalPrice) return false;
+      if (a[i].unitPrice != b[i].unitPrice) return false;
+      if (a[i].selectedToppings.length != b[i].selectedToppings.length) {
+        return false;
+      }
     }
     return true;
   }
@@ -537,7 +723,7 @@ class HomeCubit extends Cubit<HomeState> {
     emit(state.copyWith(
       displayMode: DisplayMode.attract,
       attractGifAsset: gifAsset ?? state.attractGifAsset,
-      cartQuantities: const {},
+      cartLines: const [],
     ));
     debugPrint(
         '[HomeCubit] Estado emitido: displayMode=attract, gif=${gifAsset ?? state.attractGifAsset}');
@@ -605,7 +791,7 @@ class HomeCubit extends Cubit<HomeState> {
 
     emit(state.copyWith(
       displayMode: DisplayMode.idle,
-      cartQuantities: const {},
+      cartLines: const [],
     ));
     debugPrint('[HomeCubit] Estado emitido: displayMode=idle');
 
@@ -631,7 +817,7 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.copyWith(
         displayMode: DisplayMode.product,
         currentIndex: 0,
-        cartQuantities: const {},
+        cartLines: const [],
       ));
       debugPrint(
           '[HomeCubit] Estado emitido: displayMode=product + currentIndex=0');
@@ -647,7 +833,7 @@ class HomeCubit extends Cubit<HomeState> {
         emit(state.copyWith(
           displayMode: DisplayMode.product,
           currentIndex: 0,
-          cartQuantities: const {},
+          cartLines: const [],
         ));
         debugPrint(
             '[HomeCubit] Recarga OK -> displayMode=product + currentIndex=0');
@@ -718,11 +904,11 @@ class _MerchantLoadResult {
 }
 
 class _CartSyncResult {
-  final Map<String, int> quantities;
+  final List<CartItem> lines;
   final String? message;
 
   const _CartSyncResult({
-    required this.quantities,
+    required this.lines,
     required this.message,
   });
 }

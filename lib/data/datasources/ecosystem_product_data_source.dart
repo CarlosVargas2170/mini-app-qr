@@ -58,6 +58,7 @@ class EcosystemProductDataSource implements ProductDataSource {
         price: effectivePrice,
         oldPrice: basePrice != effectivePrice ? basePrice : null,
         urlImage: item.imageUrl,
+        toppings: item.toToppings(),
       ));
     }
 

@@ -19,6 +19,8 @@ Si el usuario cierra el diálogo sin seleccionar una opción, el flujo de pago s
 
 El pago comienza validando cada producto del carrito contra su proveedor. `QrPaymentCubit` itera sobre `cartItems`, resuelve el `productId` de cada ítem (por ID explícito o por nombre dentro de `menuData`), y consulta el producto fresco mediante `_getProduct()`. Si algún producto ya no existe, el Cubit emite `failed` con un mensaje que indica qué ítem dejó de estar disponible. Si cambió de precio, actualiza el monto local de ese ítem y recalcula el total antes de crear la orden. Esta validación reduce el riesgo de cobrar información obsoleta del carrusel.
 
+Cuando el ítem tiene toppings (`item['toppings']`/`item['extraQuantities']`, armados en `home_page.dart` a partir de cada `CartItem` del carrito), la validación va más allá del precio base: `resolveSelectedToppingsAgainstProduct()` y `resolveExtraQuantitiesAgainstProduct()` (`lib/data/mappers/cart_line_json_mapper.dart`) reconstruyen la selección contra `freshProduct.toppings`, usando el precio **fresco** de cada sub-topping en vez del capturado al armar el pedido. Si algún grupo o sub-topping seleccionado ya no existe en la configuración fresca, el pago falla con un mensaje indicando que la configuración del ítem cambió. El monto final se calcula con `CartItem.unitPriceFor()` (precio base + addons) multiplicado por la cantidad, no solo por el precio base del producto.
+
 El monto final se redondea a dos decimales y se guarda en `QrPaymentState.amount`. Si el total validado es menor o igual a cero, el flujo se detiene con `failed`.
 
 Después, `QrPaymentRepositoryImpl` realiza dos operaciones secuenciales:
