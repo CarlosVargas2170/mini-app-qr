@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 /// Reproductor de GIF animado para la pantalla de atraccion.
 ///
-/// Usa [Image.asset] nativo de Flutter que soporta GIF animados
-/// sin necesidad de plugins de video ni OpenGL.
+/// Usa [Image.asset] (GIF incluidos en la app, rutas `assets/...`) o
+/// [Image.file] (GIF descargados de Cloudinary a la caché) nativos de Flutter,
+/// que soportan GIF animados sin necesidad de plugins de video ni OpenGL.
 ///
 /// Cuando cambia el [assetPath], ejecuta una transicion suave con fade:
 /// 1. Fade out del GIF actual (250ms)
@@ -94,36 +97,46 @@ class _AttractGifPlayerState extends State<AttractGifPlayer>
     super.dispose();
   }
 
+  Widget _errorBuilder(
+      BuildContext context, Object error, StackTrace? stackTrace) {
+    debugPrint('[AttractGifPlayer] Error cargando GIF: $error');
+    return Container(
+      color: Colors.black,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, color: Colors.white54, size: 64),
+            SizedBox(height: 16),
+            Text(
+              'GIF no encontrado',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAsset = _currentAsset.startsWith('assets/');
     return SizedBox.expand(
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Image.asset(
-          _currentAsset,
-          fit: BoxFit.cover,
-          gaplessPlayback: true, // Evita parpadeo entre loops
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('[AttractGifPlayer] Error cargando GIF: $error');
-            return Container(
-              color: Colors.black,
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.image_not_supported,
-                        color: Colors.white54, size: 64),
-                    SizedBox(height: 16),
-                    Text(
-                      'GIF no encontrado',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                  ],
-                ),
+        child: isAsset
+            ? Image.asset(
+                _currentAsset,
+                fit: BoxFit.cover,
+                gaplessPlayback: true, // Evita parpadeo entre loops
+                errorBuilder: _errorBuilder,
+              )
+            : Image.file(
+                File(_currentAsset),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: _errorBuilder,
               ),
-            );
-          },
-        ),
       ),
     );
   }

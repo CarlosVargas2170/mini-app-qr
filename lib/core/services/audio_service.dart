@@ -57,13 +57,16 @@ class AudioService {
     }
   }
 
-  /// Reproduce un asset de audio.
+  /// Reproduce un asset de audio, o un archivo descargado a la caché si se
+  /// indica [localFilePath] (en ese caso [assetPath] solo es el nombre para
+  /// el registro y el aviso en pantalla).
   static Future<bool> play(
     String assetPath, {
     bool force = false,
     double volume = 1.0,
     String? displayText,
-    bool showOverlay = true
+    bool showOverlay = true,
+    String? localFilePath,
   }) async {
     // Asegurar que el player esté inicializado
     _init();
@@ -98,7 +101,9 @@ class AudioService {
 
       // Usar el MISMO player, no crear uno nuevo
       await _player.setVolume(volume);
-      await _player.play(AssetSource(assetPath));
+      await _player.play(localFilePath != null
+          ? DeviceFileSource(localFilePath)
+          : AssetSource(assetPath));
 
       // Linux: boostear volumen del sistema inmediatamente después de empezar
       // a reproducir, porque GStreamer crea un nuevo sink input cada vez.

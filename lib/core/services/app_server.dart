@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../config/app_settings.dart';
 import 'audio_service.dart';
+import 'media_cache.dart';
 import 'payment_counter.dart';
 import 'payment_polling_status.dart';
 import 'product_cache.dart';
@@ -16,6 +17,7 @@ import 'ui_command_bus.dart';
 /// Expone todos los endpoints de la app en un solo puerto:
 /// --- Audio ---
 /// - `POST /audio/play`     -> Reproduce cualquier asset de audio (body: {"asset": "audio/foo.wav"})
+///                             o un audio de Cloudinary (body: {"asset": "https://res.cloudinary.com/..."})
 /// - `POST /audio/stop`     -> Detiene el audio actual
 /// - `POST /play-audio`     -> Reproduce audio por query param (ej: ?asset=audio/foo.wav&volume=1.0)
 /// - `POST /play-question`  -> Reproduce audio de pregunta (legacy)
@@ -33,7 +35,8 @@ import 'ui_command_bus.dart';
 /// - `POST /proximity/away` -> Vuelve a reposo
 /// - `POST /carrusel/product` -> Idéntico a /proximity/near
 /// --- Attract GIF ---
-/// - `POST /attract/set`    -> Cambia el GIF de atraccion (body: {"gif": "nombre"})
+/// - `POST /attract/set`    -> Cambia el GIF de atraccion (body: {"gif": "nombre"},
+///                             o {"gif": "nombre", "url": "https://res.cloudinary.com/..."})
 /// - `GET  /attract/current` -> Devuelve el nombre del GIF actual
 /// --- Pago QR (home) ---
 /// - `POST /payment/start-polling` -> Activa polling del QR visible en home
@@ -126,15 +129,22 @@ class AppServer {
         return;
       }
 
+      _ResolvedAudio? remote;
+      if (isRemoteMediaReference(asset)) {
+        remote = await _resolveRemoteAudio(asset, response);
+        if (remote == null) return;
+      }
+
       AudioService.setRemoteCall(true);
 
       // displayText opcional vía query param (?displayText=Hola)
       final displayText = params['displayText'];
       final played = await AudioService.play(
-        asset,
+        remote?.name ?? asset,
         volume: volume,
         force: force,
         displayText: displayText,
+        localFilePath: remote?.localFilePath,
       );
 
       _sendJson(response, 200, {
@@ -278,26 +288,36 @@ class AppServer {
     }
 
     if (path == '/greet/audio' && method == 'POST') {
-      final asset = normalizeAudioAssetPath(
-        request.uri.queryParameters['asset'],
-      );
-      if (asset == null) {
-        _sendJson(response, 400, {
-          'success': false,
-          'message': 'Falta un asset válido. Usa ?asset=audio/nombre.wav',
-        });
-        return;
-      }
+      final rawAsset = request.uri.queryParameters['asset'];
+      final String asset;
+      String? localFilePath;
+      if (isRemoteMediaReference(rawAsset)) {
+        final remote = await _resolveRemoteAudio(rawAsset!, response);
+        if (remote == null) return;
+        asset = remote.name;
+        localFilePath = remote.localFilePath;
+      } else {
+        final normalized = normalizeAudioAssetPath(rawAsset);
+        if (normalized == null) {
+          _sendJson(response, 400, {
+            'success': false,
+            'message':
+                'Falta un asset válido. Usa ?asset=audio/nombre.wav o una URL de Cloudinary',
+          });
+          return;
+        }
+        asset = normalized;
 
-      try {
-        await rootBundle.load('assets/$asset');
-      } catch (_) {
-        _sendJson(response, 404, {
-          'success': false,
-          'asset': asset,
-          'message': 'El audio no existe en assets/audio/',
-        });
-        return;
+        try {
+          await rootBundle.load('assets/$asset');
+        } catch (_) {
+          _sendJson(response, 404, {
+            'success': false,
+            'asset': asset,
+            'message': 'El audio no existe en assets/audio/',
+          });
+          return;
+        }
       }
 
       final params = request.uri.queryParameters;
@@ -312,6 +332,7 @@ class AppServer {
         force: force,
         displayText: displayText,
         showOverlay: showOverlay,
+        localFilePath: localFilePath,
       );
 
       _sendJson(response, 200, {
@@ -444,10 +465,13 @@ class AppServer {
 
     if (path == '/attract/current' && method == 'GET') {
       final gifName = UiCommandBus.currentGifName;
+      final gifUrl = UiCommandBus.currentGifUrl;
       _sendJson(response, 200, {
         'success': true,
         'gif': gifName,
-        'assetPath': 'assets/images/$gifName.gif',
+        // Un GIF de Cloudinary no es un asset: se identifica por su url.
+        'assetPath': gifUrl == null ? 'assets/images/$gifName.gif' : null,
+        if (gifUrl != null) 'url': gifUrl,
       });
       return;
     }
@@ -477,6 +501,12 @@ class AppServer {
       final volume = (json['volume'] as num?)?.toDouble() ?? 1.0;
       final force = json['force'] == true;
 
+      _ResolvedAudio? remote;
+      if (isRemoteMediaReference(asset)) {
+        remote = await _resolveRemoteAudio(asset, response);
+        if (remote == null) return;
+      }
+
       AudioService.setRemoteCall(true);
 
       final showOverlay = json['showOverlay'] ?? true;
@@ -484,11 +514,12 @@ class AppServer {
       // displayText opcional: el remote-control puede enviar el texto a mostrar.
       final displayText = json['displayText'] as String?;
       final played = await AudioService.play(
-        asset,
+        remote?.name ?? asset,
         volume: volume,
         force: force,
         displayText: displayText,
         showOverlay: showOverlay,
+        localFilePath: remote?.localFilePath,
       );
 
       _sendJson(response, 200, {
@@ -504,6 +535,32 @@ class AppServer {
       _sendJson(response, 400,
           {'success': false, 'message': 'Error reproduciendo audio: $e'});
     }
+  }
+
+  /// Descarga a la caché el audio indicado por [url] (una URL de Cloudinary).
+  ///
+  /// Si la URL no está permitida o la descarga falla, responde el error y
+  /// devuelve `null`: quien llama no debe volver a responder.
+  Future<_ResolvedAudio?> _resolveRemoteAudio(
+      String url, HttpResponse response) async {
+    try {
+      final file = await MediaCache.instance.fetch(url, MediaKind.audio);
+      return _ResolvedAudio(file.uri.pathSegments.last, file.path);
+    } on MediaCacheException catch (error) {
+      _sendMediaError(response, url, error);
+      return null;
+    }
+  }
+
+  /// 400 si la URL no está permitida; 502 si Cloudinary o el disco fallaron.
+  void _sendMediaError(
+      HttpResponse response, String url, MediaCacheException error) {
+    debugPrint('[AppServer] Archivo remoto rechazado ($url): ${error.message}');
+    _sendJson(response, error.invalidUrl ? 400 : 502, {
+      'success': false,
+      'asset': url,
+      'message': error.message,
+    });
   }
 
   // -- Config handlers --
@@ -787,10 +844,13 @@ class AppServer {
   /// Body esperado:
   /// ```json
   /// { "gif": "attract" }
+  /// { "gif": "wink", "url": "https://res.cloudinary.com/<cloud>/image/upload/.../wink.gif" }
   /// ```
   ///
-  /// El nombre se mapea a `assets/images/{gif}.gif`.
-  /// Si no se envia, se usa `"attract"` por defecto.
+  /// Sin `url`, el nombre se mapea a `assets/images/{gif}.gif`.
+  /// Con `url` (GIF subido desde el panel), se descarga a la caché y se muestra
+  /// desde ahí; si la descarga falla, el GIF actual no cambia.
+  /// Si no se envia `gif`, se usa `"attract"` por defecto.
   Future<void> _handleSetAttractGif(
       HttpRequest request, HttpResponse response) async {
     try {
@@ -798,16 +858,34 @@ class AppServer {
       final json = jsonDecode(body) as Map<String, dynamic>;
       debugPrint('[AppServer] Cambio de GIF de atraccion solicitado: $json');
       final gifName = json['gif'] as String? ?? 'attract';
-      final assetPath = 'assets/images/$gifName.gif';
+      final url = (json['url'] as String?)?.trim();
+
+      final String assetPath;
+      String? remoteUrl;
+      if (url != null && url.isNotEmpty) {
+        try {
+          final file = await MediaCache.instance.fetch(url, MediaKind.image);
+          assetPath = file.path;
+          remoteUrl = url;
+        } on MediaCacheException catch (error) {
+          _sendMediaError(response, url, error);
+          return;
+        }
+      } else {
+        assetPath = 'assets/images/$gifName.gif';
+      }
+
       debugPrint(
           '[AppServer] Cambiando GIF de atraccion a: $gifName ($assetPath)');
       UiCommandBus.currentGifName = gifName;
+      UiCommandBus.currentGifUrl = remoteUrl;
       UiCommandBus.emit(ShowAttract(gifAsset: assetPath));
 
       _sendJson(response, 200, {
         'success': true,
         'gif': gifName,
         'assetPath': assetPath,
+        if (remoteUrl != null) 'url': remoteUrl,
         'message': 'GIF cambiado a "$gifName" y mostrando atraccion',
       });
     } catch (e) {
@@ -830,6 +908,15 @@ class AppServer {
     _server = null;
     if (kDebugMode) debugPrint('[AppServer] Servidor detenido.');
   }
+}
+
+/// Audio de Cloudinary ya descargado a la caché.
+class _ResolvedAudio {
+  const _ResolvedAudio(this.name, this.localFilePath);
+
+  /// Nombre del archivo, para el registro y el aviso en pantalla.
+  final String name;
+  final String localFilePath;
 }
 
 /// Normaliza una ruta de asset de audio recibida por HTTP.

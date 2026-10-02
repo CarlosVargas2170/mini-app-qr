@@ -59,9 +59,25 @@ Una combinación no reconocida responde `404` con `{"success":false,"message":"E
 
 `asset` es obligatorio. Los demás campos son opcionales. Responde `200` incluso cuando el cooldown omite el audio; `played` informa el resultado. JSON inválido o asset ausente produce `400`.
 
+`asset` también puede ser una URL de Cloudinary de un audio subido desde el panel (ver [Archivos de Cloudinary](#archivos-de-cloudinary)).
+
 ### `POST /play-audio`
 
-Query parameters: `asset` obligatorio; `volume` (default `1.0`), `force` (`true`/`false`) y `displayText` opcionales. Esta variante no expone `showOverlay` y usa el valor predeterminado `true`.
+Query parameters: `asset` obligatorio; `volume` (default `1.0`), `force` (`true`/`false`) y `displayText` opcionales. Esta variante no expone `showOverlay` y usa el valor predeterminado `true`. Acepta URLs de Cloudinary igual que `/audio/play`.
+
+### Archivos de Cloudinary
+
+`/audio/play`, `/play-audio`, `/greet/audio` (`asset`) y `/attract/set` (`url`) aceptan archivos subidos desde el panel a Cloudinary. El robot los descarga una vez a una caché en disco y los reproduce desde ahí, por lo que siguen sonando sin internet.
+
+Como este servidor no autentica solicitudes, solo se aceptan URLs `https://res.cloudinary.com/<cloud>/<image|video>/upload/...` del cloud configurado (`zrwcfuqw` por defecto; `CLOUDINARY_CLOUD_NAME` en `.env` lo cambia), sin query ni credenciales, con extensión `.wav`, `.mp3`, `.ogg`, `.m4a` o `.aac` para audio y `.gif` para imágenes. No se siguen redirecciones. Máximos: 20 MB (audio) y 25 MB (GIF).
+
+| Caso | Respuesta |
+|---|---|
+| URL no permitida (otro servidor, extensión, cloud…) | `400` con `success:false` y `message` |
+| Cloudinary no responde, responde un error, o el disco falla | `502` con `success:false` y `message` |
+| Archivo ya en caché | `200`, sin descargar |
+
+La primera reproducción de un archivo nuevo espera a la descarga. La caché está en `~/.local/share/mini_app_qr/media_cache/` (Linux; `%LOCALAPPDATA%\mini_app_qr\media_cache\` en Windows), fuera de `build/` para que sobreviva a recompilar y a actualizar el bundle. Si esa carpeta no se puede crear, usa una junto al ejecutable y, en último caso, la carpeta temporal. Para vaciarla basta borrar la carpeta: los archivos se vuelven a descargar al usarse.
 
 ### Endpoints de audio predefinido
 
@@ -171,7 +187,9 @@ Modos válidos: `all`, `blacklist`, `whitelist`. `reset: true` limpia filtros. `
 
 `POST /attract/set` acepta `{"gif":"normal"}` y mapea directamente a `assets/images/normal.gif`. Si falta, usa `attract`. No valida previamente que el asset exista.
 
-`GET /attract/current` devuelve `gif` y `assetPath` desde el valor global vigente.
+Con `{"gif":"wink","url":"https://res.cloudinary.com/..../wink.gif"}` descarga el GIF a la caché y lo muestra desde ahí (ver [Archivos de Cloudinary](#archivos-de-cloudinary)). La descarga ocurre antes de cambiar la pantalla: si falla, responde `400`/`502` y el GIF actual no cambia. La respuesta incluye `url`.
+
+`GET /attract/current` devuelve `gif` y `assetPath` desde el valor global vigente. Si el GIF viene de Cloudinary, `assetPath` es `null` y se devuelve `url`.
 
 ## 8. APIs externas
 

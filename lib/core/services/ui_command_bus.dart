@@ -13,7 +13,8 @@ sealed class UiCommand {
 
 /// Mostrar video de atraccion (robot cerca de persona).
 ///
-/// [gifAsset] permite elegir que GIF se muestra.
+/// [gifAsset] permite elegir que GIF se muestra: una ruta de assets
+/// (`assets/images/happy.gif`) o la ruta de un GIF descargado a la caché.
 /// Si es null, se usa el GIF por defecto (`assets/images/normal.gif`).
 class ShowAttract extends UiCommand {
   final String? gifAsset;
@@ -77,4 +78,7 @@ class UiCommandBus {
   /// Nombre del GIF actualmente configurado (sin extension ni ruta).
   /// Se actualiza cada vez que se emite un [ShowAttract] con [ShowAttract.gifAsset].
   static String currentGifName = 'attract';
+
+  /// URL de Cloudinary del GIF actual; `null` si es uno incluido en la app.
+  static String? currentGifUrl;
 }
