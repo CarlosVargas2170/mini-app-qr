@@ -42,7 +42,11 @@ class ProductDataSourceFactory {
     ));
 
     if (config.isLegacy) {
-      return LegacyProductDataSource(dio, config.merchantId);
+      return LegacyProductDataSource(
+        dio,
+        config.merchantId,
+        config.billingType,
+      );
     }
 
     return EcosystemProductDataSource(
@@ -51,6 +55,7 @@ class ProductDataSourceFactory {
       config.channelId!,
       config.storeId!,
       config.merchantId,
+      config.billingType,
     );
   }
 }

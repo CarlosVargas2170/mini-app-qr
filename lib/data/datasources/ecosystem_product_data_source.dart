@@ -16,6 +16,7 @@ class EcosystemProductDataSource implements ProductDataSource {
   final int _channelId;
   final int _storeId;
   final int _merchantId;
+  final String _billingType;
 
   EcosystemProductDataSource(
     this._dio,
@@ -23,6 +24,7 @@ class EcosystemProductDataSource implements ProductDataSource {
     this._channelId,
     this._storeId,
     this._merchantId,
+    this._billingType,
   );
 
   String get _menuPath =>
@@ -80,14 +82,19 @@ class EcosystemProductDataSource implements ProductDataSource {
 
   @override
   Future<domain.Merchant> getMerchantInfo() async {
+    debugPrint(
+        '[EcosystemDS] Fetching merchant info for merchant $_merchantId (store $_storeId)');
     final response = await _dio.get(_menuPath);
     final menuResponse =
         MenuResponseDto.fromJson(response.data as Map<String, dynamic>);
     final storeName = menuResponse.data.store.nameStore;
 
+    debugPrint(
+        '[EcosystemDS] Merchant $_merchantId: name="$storeName", billingType=$_billingType');
     return domain.Merchant(
       id: _merchantId,
       name: storeName,
+      billingType: _billingType,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/product.dart' as domain;
 import '../../domain/entities/merchant.dart' as domain;
@@ -10,11 +11,13 @@ import 'product_data_source.dart';
 class LegacyProductDataSource implements ProductDataSource {
   final Dio _dio;
   final int _merchantId;
+  final String _billingType;
 
-  LegacyProductDataSource(this._dio, this._merchantId);
+  LegacyProductDataSource(this._dio, this._merchantId, this._billingType);
 
   @override
   Future<List<domain.Product>> getProducts() async {
+    debugPrint('[LegacyDS] Fetching products for merchant $_merchantId');
     final response = await _dio.get(
       '/v1/merchants/$_merchantId/products-categories',
       queryParameters: {
@@ -35,26 +38,38 @@ class LegacyProductDataSource implements ProductDataSource {
       }
     }
 
+    debugPrint(
+        '[LegacyDS] Merchant $_merchantId: ${products.length} products from ${categories.length} categories');
     return products;
   }
 
   @override
   Future<domain.Product> getProduct(int productId) async {
+    debugPrint(
+        '[LegacyDS] Fetching product $productId from merchant $_merchantId');
     final response = await _dio.get(
       '/v1/merchants/$_merchantId/products/$productId',
     );
-    return _mapToProduct(response.data as Map<String, dynamic>);
+    final product = _mapToProduct(response.data as Map<String, dynamic>);
+    debugPrint(
+        '[LegacyDS] Product $productId: name="${product.name}", price=${product.price}');
+    return product;
   }
 
   @override
   Future<domain.Merchant> getMerchantInfo() async {
+    debugPrint('[LegacyDS] Fetching merchant info for merchant $_merchantId');
     final response = await _dio.get('/merchants/$_merchantId');
     final json = response.data as Map<String, dynamic>;
-    return domain.Merchant(
+    final merchant = domain.Merchant(
       id: _merchantId,
       name: json['name'] ?? '',
       urlLogo: json['urlLogo'] as String?,
+      billingType: _billingType,
     );
+    debugPrint(
+        '[LegacyDS] Merchant $_merchantId: name="${merchant.name}", logo=${merchant.urlLogo ?? "none"}, billingType=${merchant.billingType}');
+    return merchant;
   }
 
   domain.Product _mapToProduct(Map<String, dynamic> json) {

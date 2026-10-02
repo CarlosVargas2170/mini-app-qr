@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/config/app_settings.dart';
 import '../../core/services/product_cache.dart';
+import '../../domain/entities/merchant.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/usecases/get_merchant_info.dart';
 import '../../domain/usecases/get_products.dart';
@@ -129,6 +130,7 @@ class HomeCubit extends Cubit<HomeState> {
         merchantName: result.merchantName,
         merchantNames: result.merchantNames,
         merchantIds: result.merchantIds,
+        merchantsById: result.merchantsById,
       ));
       debugPrint(
           '[HomeCubit] Estado emitido: loaded + attract (${filteredProducts.length} productos de ${result.merchantIds.length} merchants)');
@@ -145,13 +147,7 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  Future<
-      ({
-        List<Product> products,
-        String merchantName,
-        List<String> merchantNames,
-        List<int> merchantIds
-      })> _loadWithRetry() async {
+  Future<_HomeLoadResult> _loadWithRetry() async {
     const maxRetries = 1;
     const retryDelay = Duration(seconds: 2);
 
@@ -183,6 +179,7 @@ class HomeCubit extends Cubit<HomeState> {
         final allProducts = <Product>[];
         final merchantNames = <String>[];
         final loadedMerchantIds = <int>[];
+        final merchantsById = <int, Merchant>{};
         final errors = <String>[];
 
         for (var i = 0; i < results.length; i++) {
@@ -191,8 +188,9 @@ class HomeCubit extends Cubit<HomeState> {
 
           if (result != null) {
             allProducts.addAll(result.products);
-            merchantNames.add(result.merchantName);
+            merchantNames.add(result.merchant.name);
             loadedMerchantIds.add(merchantId);
+            merchantsById[merchantId] = result.merchant;
             debugPrint(
                 '[HomeCubit] Merchant $merchantId: ${result.products.length} productos cargados');
           } else {
@@ -213,11 +211,12 @@ class HomeCubit extends Cubit<HomeState> {
         // merchantName principal: combina los nombres de todos los merchants
         final primaryName = merchantNames.join(' | ');
 
-        return (
+        return _HomeLoadResult(
           products: allProducts,
           merchantName: primaryName,
           merchantNames: merchantNames,
           merchantIds: loadedMerchantIds,
+          merchantsById: Map.unmodifiable(merchantsById),
         );
       } catch (e) {
         if (attempt < maxRetries) {
@@ -233,15 +232,14 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// Carga los productos e info de un solo merchant.
   /// Retorna null si falla (para manejo graceful de errores).
-  Future<({List<Product> products, String merchantName})?> _loadSingleMerchant(
-      int merchantId) async {
+  Future<_MerchantLoadResult?> _loadSingleMerchant(int merchantId) async {
     try {
       debugPrint('[HomeCubit] Cargando merchant $merchantId...');
       final products = await _getProducts(merchantId);
       final merchant = await _getMerchant(merchantId);
       debugPrint(
           '[HomeCubit] Merchant $merchantId OK: ${products.length} productos, nombre="${merchant.name}"');
-      return (products: products, merchantName: merchant.name);
+      return _MerchantLoadResult(products: products, merchant: merchant);
     } catch (e) {
       debugPrint('[HomeCubit] Error cargando merchant $merchantId: $e');
       return null; // Falla gracefully: un merchant caido no detiene a los demas
@@ -378,6 +376,7 @@ class HomeCubit extends Cubit<HomeState> {
         merchantName: result.merchantName,
         merchantNames: result.merchantNames,
         merchantIds: result.merchantIds,
+        merchantsById: result.merchantsById,
         lastPolledAt: DateTime.now(),
       ));
 
@@ -400,7 +399,8 @@ class HomeCubit extends Cubit<HomeState> {
     List<Product> freshProducts,
   ) {
     final currentByKey = {
-      for (final product in currentProducts) HomeState.cartKey(product): product,
+      for (final product in currentProducts)
+        HomeState.cartKey(product): product,
     };
     final freshByKey = {
       for (final product in freshProducts) HomeState.cartKey(product): product,
@@ -689,6 +689,32 @@ class HomeCubit extends Cubit<HomeState> {
     _cancelInactivityTimer();
     return super.close();
   }
+}
+
+class _HomeLoadResult {
+  final List<Product> products;
+  final String merchantName;
+  final List<String> merchantNames;
+  final List<int> merchantIds;
+  final Map<int, Merchant> merchantsById;
+
+  const _HomeLoadResult({
+    required this.products,
+    required this.merchantName,
+    required this.merchantNames,
+    required this.merchantIds,
+    required this.merchantsById,
+  });
+}
+
+class _MerchantLoadResult {
+  final List<Product> products;
+  final Merchant merchant;
+
+  const _MerchantLoadResult({
+    required this.products,
+    required this.merchant,
+  });
 }
 
 class _CartSyncResult {

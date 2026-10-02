@@ -31,9 +31,12 @@ flowchart TD
     Recalc --> Pay{Pagar}
     Pay -- Sí --> Validate{¿Carrito no vacío?}
     Validate -- Sí --> Pause[Pausar timeout]
-    Pause --> Force[forcePoll productos]
+    Pause --> Billing[Mostrar BillingFlowDialog]
+    Billing --> Continue{¿Continuar?}
+    Continue -- No --> Resume[Reanudar timeout]
+    Continue -- Sí --> Force[forcePoll productos]
     Force --> Consistent{¿Carrito cambió o quedó vacío?}
-    Consistent -- Sí --> Resume[Reanudar timeout + aviso]
+    Consistent -- Sí --> Resume2[Reanudar timeout + aviso]
     Consistent -- No --> Navigate[Navegar a QrPaymentPage]
 ```
 

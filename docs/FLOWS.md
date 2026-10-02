@@ -43,7 +43,7 @@ Este documento reúne los flujos observados en `lib/`, distinguiendo los iniciad
 
 ## A.4 Flujos de pago QR
 
-23. **Preparación del pago desde carrito**: valida carrito no vacío, pausa el timeout, fuerza polling de productos y aborta si el carrito cambió o quedó vacío.
+23. **Preparación del pago desde carrito**: valida carrito no vacío, presenta el diálogo de facturación (`BillingFlowDialog`) para recopilar NIT y razón social opcionales, pausa el timeout, fuerza polling de productos y aborta si el carrito cambió o quedó vacío.
 24. **Validación pre-pago**: resuelve el ID de cada ítem, consulta el producto fresco, actualiza nombre/precio/menuData y recalcula el monto.
 25. **Creación del pago**: `POST /orders/create-pending` → `orderId` → `POST /payments/qr/generate-payment` → QR.
 26. **Polling automático de página dedicada**: cada tres segundos consulta el estado del pago; estados externos se normalizan a pendiente, confirmado o fallido.

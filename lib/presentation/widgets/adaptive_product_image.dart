@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,6 +8,14 @@ import '../../core/config/app_settings.dart';
 import 'app_image.dart';
 
 const double _maxCompatibleAspectDifference = 1.55;
+
+/// Reintentos ante fallo de red/decodificacion antes de mostrar el placeholder.
+const int _maxLoadRetries = 3;
+const List<Duration> _retryDelays = [
+  Duration(seconds: 1),
+  Duration(seconds: 3),
+  Duration(seconds: 6),
+];
 
 /// Determines whether an image would lose too much content with [BoxFit.cover].
 @visibleForTesting
@@ -53,6 +62,8 @@ class _AdaptiveProductImageState extends State<AdaptiveProductImage> {
   ImageStreamListener? _imageStreamListener;
   Size? _imageSize;
   bool _hasError = false;
+  int _retryCount = 0;
+  Timer? _retryTimer;
 
   @override
   void didChangeDependencies() {
@@ -66,14 +77,17 @@ class _AdaptiveProductImageState extends State<AdaptiveProductImage> {
   void didUpdateWidget(covariant AdaptiveProductImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
+      _retryTimer?.cancel();
       _removeImageListener();
       _imageSize = null;
       _hasError = false;
+      _retryCount = 0;
       _resolveImageSize();
     }
   }
 
   void _resolveImageSize() {
+    _removeImageListener();
     final configuration = createLocalImageConfiguration(context);
     final ImageStream stream;
     if (AppSettings().enableImageCache) {
@@ -93,10 +107,30 @@ class _AdaptiveProductImageState extends State<AdaptiveProductImage> {
             imageInfo.image.height.toDouble(),
           );
           _hasError = false;
+          _retryCount = 0;
         });
       },
-      onError: (Object _, StackTrace? __) {
+      onError: (Object error, StackTrace? _) {
         if (!mounted) return;
+        if (_retryCount < _maxLoadRetries) {
+          final delay = _retryDelays[_retryCount];
+          _retryCount++;
+          debugPrint(
+            '[AdaptiveProductImage] Fallo al cargar ${widget.imageUrl} '
+            '(intento $_retryCount/$_maxLoadRetries), reintentando en '
+            '${delay.inSeconds}s: $error',
+          );
+          _retryTimer?.cancel();
+          _retryTimer = Timer(delay, () {
+            if (!mounted) return;
+            _resolveImageSize();
+          });
+          return;
+        }
+        debugPrint(
+          '[AdaptiveProductImage] Fallo definitivo al cargar '
+          '${widget.imageUrl} tras $_maxLoadRetries reintentos: $error',
+        );
         setState(() => _hasError = true);
       },
     );
@@ -118,6 +152,7 @@ class _AdaptiveProductImageState extends State<AdaptiveProductImage> {
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _removeImageListener();
     super.dispose();
   }

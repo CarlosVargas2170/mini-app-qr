@@ -51,6 +51,8 @@ Los textos predeterminados proceden de `AudioMessages`.
 ## 6. Integración con flujos
 
 - `/greet` y `/play-question` muestran el primer producto y reproducen pregunta.
+- `/greet/audio?asset=audio/...` muestra el primer producto y reproduce el
+  asset indicado.
 - Un pago confirmado en `QrPaymentPage` reproduce agradecimiento.
 - El panel QR embebido también reproduce audio en su flujo posterior al éxito.
 - Los demás audios pueden dispararse mediante endpoints especializados o `/audio/play`.
@@ -60,6 +62,18 @@ Los textos predeterminados proceden de `AudioMessages`.
 Existe una función `_boostLinuxVolume`, pero las instrucciones `pactl` están comentadas; actualmente solo espera 300 ms en Linux. `stop()` detiene reproducción y overlay. `dispose()` libera el player, aunque no se invoca desde `main.dart` en el código vigente.
 
 Los assets registrados por Flutter son todo `assets/audio/`. Para agregar un archivo basta ubicarlo allí; si se cambia la estructura, debe actualizarse `pubspec.yaml`.
+
+### Assets adicionales disponibles
+
+Además de los métodos predefinidos, el proyecto incluye los siguientes assets de audio para uso genérico mediante `/audio/play` o `AudioService.play()`:
+
+| Asset | Ruta |
+| --- | --- |
+| `dance_to_sell` | `audio/dance_to_sell.wav` |
+| `reto_tokio` | `audio/reto_tokio.mp3` |
+| `aura_farming` | `audio/aura_farming.mp3` |
+| `chipi_chipi_chapa` | `audio/chipi_chipi_chapa.mp3` |
+| `fahh` | `audio/fahh.mp3` |
 
 ## 8. API
 

@@ -12,6 +12,7 @@ import '../bloc/qr_payment_cubit.dart';
 import '../widgets/attract_gif_player.dart';
 import '../widgets/audio_overlay_wrapper.dart';
 import '../widgets/audio_overlay_widget.dart';
+import '../widgets/billing_dialogs.dart';
 import '../widgets/floating_cart.dart';
 import '../widgets/product_carousel.dart';
 import '../widgets/product_quantity_selector.dart';
@@ -250,7 +251,7 @@ class _HomeViewState extends State<_HomeView> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildProductInfo(product),
+              _buildProductInfo(product, state),
               const SizedBox(height: 12),
               _buildQuantitySelector(context, state),
               const SizedBox(height: 24),
@@ -272,6 +273,9 @@ class _HomeViewState extends State<_HomeView> {
 
   Widget _buildWideLayout(BuildContext context, HomeState state) {
     final product = state.currentProduct!;
+    final quantity = state.quantityFor(product);
+    final displayQuantity = quantity > 0 ? quantity : 1;
+    final displayPrice = product.price * displayQuantity;
     return Padding(
       padding: const EdgeInsets.only(left: 200, top: 96, right: 96, bottom: 96),
       child: Row(
@@ -316,7 +320,7 @@ class _HomeViewState extends State<_HomeView> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${product.price} Bs',
+                      '${displayPrice.toStringAsFixed(2)} Bs',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.warning,
@@ -340,12 +344,12 @@ class _HomeViewState extends State<_HomeView> {
                     ),
                     const Positioned(
                       left: 0,
-                      bottom: -4,
+                      bottom: 8,
                       child: _NexusTechnologySignature(),
                     ),
                     Positioned(
                       right: -20,
-                      bottom: -20,
+                      bottom: -8,
                       child: _buildFloatingCart(context, state),
                     ),
                   ],
@@ -388,7 +392,10 @@ class _HomeViewState extends State<_HomeView> {
     );
   }
 
-  Widget _buildProductInfo(dynamic product) {
+  Widget _buildProductInfo(dynamic product, HomeState state) {
+    final quantity = state.quantityFor(product);
+    final displayQuantity = quantity > 0 ? quantity : 1;
+    final displayPrice = product.price * displayQuantity;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -404,7 +411,7 @@ class _HomeViewState extends State<_HomeView> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${product.price} Bs',
+            '${displayPrice.toStringAsFixed(2)} Bs',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.warning,
@@ -580,6 +587,18 @@ class _HomeViewState extends State<_HomeView> {
     }
 
     final products = List.of(refreshedState.cartProducts);
+    final firstProduct = products.first;
+
+    final billingDetails = refreshedState
+            .merchantUsesBilling(firstProduct.merchantId)
+        ? await _collectBillingDetails()
+        : const BillingFlowResult.withoutInvoice();
+    if (!mounted) return;
+    if (billingDetails == null) {
+      _isPreparingPayment = false;
+      homeCubit.resumeCustomerSessionTimeout();
+      return;
+    }
 
     // Snapshot del carrito: orden y QR salen de la misma seleccion.
     final cartItems = products
@@ -599,7 +618,6 @@ class _HomeViewState extends State<_HomeView> {
               'description': product.description,
             })
         .toList(growable: false);
-    final firstProduct = products.first;
     final amount = products.fold<double>(
       0,
       (total, product) =>
@@ -620,6 +638,8 @@ class _HomeViewState extends State<_HomeView> {
             merchantId: firstProduct.merchantId,
             productId: firstProduct.id,
             amount: amount,
+            nit: billingDetails.nit,
+            businessName: billingDetails.businessName,
             cartItems: cartItems,
             menuData: {
               'merchantName':
@@ -657,6 +677,14 @@ class _HomeViewState extends State<_HomeView> {
       homeCubit.resumeCustomerSessionTimeout();
       _showCartSyncNoticeIfNeeded(this.context, homeCubit.state);
     });
+  }
+
+  Future<BillingFlowResult?> _collectBillingDetails() {
+    return showDialog<BillingFlowResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const BillingFlowDialog(),
+    );
   }
 }
 

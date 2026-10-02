@@ -58,6 +58,8 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
     required List<Map<String, dynamic>> cartItems,
     required Map<String, dynamic>? menuData,
     required double amount,
+    String? nit,
+    String? businessName,
     String? paymentReferenceOverride,
     bool autoPoll = true,
   }) async {
@@ -144,6 +146,8 @@ class QrPaymentCubit extends Cubit<QrPaymentState> {
         cartItems: validatedCartItems,
         menuData: validatedMenuData,
         amount: validatedAmount,
+        nit: nit,
+        businessName: businessName,
         paymentReferenceOverride: paymentReferenceOverride,
       );
 

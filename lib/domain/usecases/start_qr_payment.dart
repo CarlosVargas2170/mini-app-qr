@@ -15,6 +15,8 @@ class StartQrPaymentUseCase {
     required List<Map<String, dynamic>> cartItems,
     required Map<String, dynamic>? menuData,
     required double amount,
+    String? nit,
+    String? businessName,
     String? paymentReferenceOverride,
   }) =>
       _repository.startQrPayment(
@@ -25,6 +27,8 @@ class StartQrPaymentUseCase {
         cartItems: cartItems,
         menuData: menuData,
         amount: amount,
+        nit: nit,
+        businessName: businessName,
         paymentReferenceOverride: paymentReferenceOverride,
       );
 }
